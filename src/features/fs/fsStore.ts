@@ -13,7 +13,7 @@ export const createInitialFS = (): FSState => ({
 		children: [
 			{
 				id: 'readme',
-				name: 'README.md',
+				name: 'README',
 				type: 'file',
 				extension: 'md',
 				content: '# Welcome\n\nThis is a live editor.',
@@ -25,7 +25,7 @@ export const createInitialFS = (): FSState => ({
 				children: [
 					{
 						id: 'main',
-						name: 'main.py',
+						name: 'main',
 						type: 'file',
 						extension: 'py',
 						content: 'print("Hello, Live Editor!");',

@@ -27,9 +27,14 @@ export function EditorPanel() {
 	const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
 	const monacoRef = useRef<typeof Monaco | null>(null);
 
-	const snippetSessionRef = useRef<{ ids: string[]; index: number } | null>(
-		null
-	);
+	type SnippetSession = {
+		ids: string[];
+		index: number;
+		baseOffset: number; // insertion start offset (before executeEdits)
+		textLength: number; // finalText.length
+	};
+
+	const snippetSessionRef = useRef<SnippetSession | null>(null);
 
 	if (!file) return <div className="text-slate-400">Select a file…</div>;
 
@@ -46,17 +51,72 @@ export function EditorPanel() {
 		snippetSessionRef.current = null;
 	};
 
-	const jumpPlaceholder = (dir: 1 | -1) => {
+	/**
+	 * Move the caret to end of inserted snippet and end snippet mode.
+	 * (Used when user presses Tab after last placeholder.)
+	 */
+	const endSnippetAtEnd = () => {
 		const editor = editorRef.current;
 		const model = editor?.getModel();
 		const session = snippetSessionRef.current;
-		if (!editor || !model || !session) return false;
+		if (!editor || !model || !session) return;
+
+		const endPos = model.getPositionAt(
+			session.baseOffset + session.textLength
+		);
+
+		editor.setSelection({
+			startLineNumber: endPos.lineNumber,
+			startColumn: endPos.column,
+			endLineNumber: endPos.lineNumber,
+			endColumn: endPos.column,
+		});
+
+		clearSnippetSession();
+	};
+
+	/**
+	 * IMPORTANT behavior:
+	 * - If snippet session is active:
+	 *   - Tab/Shift+Tab should NEVER fall back to Monaco default indentation while placeholder is selected.
+	 *   - When moving past last placeholder (Tab), we END the session and place caret at end.
+	 * - Return true = "we handled it, consume Tab"
+	 * - Return false = "no active session, let Monaco handle Tab"
+	 */
+	const jumpPlaceholder = (dir: 1 | -1): boolean => {
+		const editor = editorRef.current;
+		const model = editor?.getModel();
+		const session = snippetSessionRef.current;
+		if (!editor || !model || !session || session.ids.length === 0)
+			return false;
 
 		const nextIndex = session.index + dir;
-		if (nextIndex < 0 || nextIndex >= session.ids.length) return false;
 
+		// Shift+Tab before first: keep it at first (consume)
+		if (nextIndex < 0) {
+			session.index = 0;
+			const r = model.getDecorationRange(session.ids[0]);
+			if (!r) {
+				clearSnippetSession();
+				return true;
+			}
+			editor.setSelection(r);
+			editor.revealRangeInCenter(r);
+			return true;
+		}
+
+		// Tab after last: END snippet (consume)
+		if (nextIndex >= session.ids.length) {
+			endSnippetAtEnd();
+			return true;
+		}
+
+		// Move to next/prev placeholder
 		const range = model.getDecorationRange(session.ids[nextIndex]);
-		if (!range) return false;
+		if (!range) {
+			clearSnippetSession();
+			return true; // consume
+		}
 
 		session.index = nextIndex;
 		editor.setSelection(range);
@@ -79,6 +139,7 @@ export function EditorPanel() {
 
 		let tpl = template;
 
+		// If there is a selection, inject it into the first placeholder (${1:...})
 		if (hasSelection) {
 			tpl = tpl.replace(/\$\{1:([^}]+)\}/, () => `\${1:${selectedText}}`);
 		}
@@ -91,6 +152,7 @@ export function EditorPanel() {
 
 		const finalText = needsNewLine ? `\n${text}` : text;
 
+		// baseOffset must be insertion START (before edits)
 		const baseOffset = model.getOffsetAt(selection.getStartPosition());
 
 		editor.executeEdits('', [
@@ -117,18 +179,30 @@ export function EditorPanel() {
 		const ids = model.deltaDecorations([], decorations);
 
 		if (ids.length > 0) {
-			snippetSessionRef.current = { ids, index: 0 };
+			snippetSessionRef.current = {
+				ids,
+				index: 0,
+				baseOffset,
+				textLength: finalText.length,
+			};
+
 			const first = model.getDecorationRange(ids[0]);
 			if (first) editor.setSelection(first);
 		} else {
-			editor.setPosition(selection.getEndPosition());
+			// ✅ Fix #1: No placeholders → caret goes to END of inserted snippet
+			const endPos = model.getPositionAt(baseOffset + finalText.length);
+			editor.setSelection({
+				startLineNumber: endPos.lineNumber,
+				startColumn: endPos.column,
+				endLineNumber: endPos.lineNumber,
+				endColumn: endPos.column,
+			});
 		}
 
 		editor.focus();
 	};
 
 	return (
-		// ✅ key: seal this whole panel; no page scroll should come from here
 		<div className="h-full min-h-0 overflow-hidden flex flex-col">
 			{buttons.length > 0 && (
 				<div className="mb-2 flex flex-wrap gap-2 text-sm shrink-0">
@@ -137,6 +211,7 @@ export function EditorPanel() {
 							key={b.id}
 							className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700"
 							onClick={() => insert(b.insert)}
+							type="button"
 						>
 							{b.label}
 						</button>
@@ -193,20 +268,23 @@ export function EditorPanel() {
 									endIfSelectionNotOnActive();
 								});
 
+								// ✅ Fix #2: consume Tab while snippet session active
 								editor.addCommand(monaco.KeyCode.Tab, () => {
-									if (!jumpPlaceholder(1))
+									if (!jumpPlaceholder(1)) {
 										editor.trigger('keyboard', 'tab', null);
+									}
 								});
 
 								editor.addCommand(
 									monaco.KeyMod.Shift | monaco.KeyCode.Tab,
 									() => {
-										if (!jumpPlaceholder(-1))
+										if (!jumpPlaceholder(-1)) {
 											editor.trigger(
 												'keyboard',
 												'outdent',
 												null
 											);
+										}
 									}
 								);
 
@@ -241,7 +319,6 @@ export function EditorPanel() {
 					</div>
 
 					{isMarkdown && (
-						// ✅ give preview a sealed cell; PreviewPanel will scroll inside it
 						<div className="h-full min-h-0 overflow-hidden">
 							<PreviewPanel
 								extension={file.extension}

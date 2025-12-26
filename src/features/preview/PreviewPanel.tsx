@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 
 export function PreviewPanel({
 	extension,
@@ -13,17 +14,15 @@ export function PreviewPanel({
 		: content;
 
 	return (
-		// ✅ key: h-full so it matches the editor column height
-		// ✅ overflow-auto so only the preview scrolls (not the page)
-		<div className="h-full min-h-0 overflow-auto bg-slate-900 p-3 rounded text-sm prose prose-invert max-w-none">
+		<div className="min-h-0 h-full overflow-auto bg-slate-900 p-3 rounded text-sm prose prose-invert max-w-none">
 			{extension === 'md' ? (
-				<ReactMarkdown remarkPlugins={[remarkGfm]}>
+				<ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
 					{normalized}
 				</ReactMarkdown>
 			) : (
-				<div className="text-slate-400">
-					No preview for .{extension}
-				</div>
+				<pre className="whitespace-pre-wrap text-slate-200">
+					{normalized}
+				</pre>
 			)}
 		</div>
 	);
