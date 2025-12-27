@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import {
+	selectActiveFileId,
 	selectAllExtensions,
 	selectGlobalSearchResults,
 	selectSearchState,
@@ -13,9 +14,15 @@ import {
 	type SearchMode,
 } from '../fs/fsSlice';
 import { openFile } from '../fs/fsSlice';
+import { focusActiveEditor, revealInActiveEditor } from '../editor/EditorPanel';
 
 function normalizeExtLabel(ext: string) {
 	return ext.startsWith('.') ? ext : `.${ext}`;
+}
+
+// small helper: run after current click finishes + React settles
+function defer(fn: () => void) {
+	setTimeout(fn, 0);
 }
 
 export function GlobalSearchPanel() {
@@ -23,13 +30,15 @@ export function GlobalSearchPanel() {
 
 	const { query, mode, matchCase, extFilters } =
 		useAppSelector(selectSearchState);
+
+	const activeFileId = useAppSelector(selectActiveFileId);
 	const allExts = useAppSelector(selectAllExtensions);
 	const results = useAppSelector(selectGlobalSearchResults);
 
 	const [extOpen, setExtOpen] = useState(false);
 
 	const extSet = useMemo(
-		() => new Set((extFilters ?? []).map((x) => x.toLowerCase())),
+		() => new Set((extFilters ?? []).map((x) => String(x).toLowerCase())),
 		[extFilters]
 	);
 
@@ -139,7 +148,7 @@ export function GlobalSearchPanel() {
 				</div>
 			</div>
 
-			{/* Results: fill remaining height */}
+			{/* Results */}
 			<div className="mt-3 flex-1 min-h-0 overflow-auto pr-1">
 				{results.length === 0 ? (
 					<div className="text-xs text-slate-500">No matches.</div>
@@ -152,14 +161,18 @@ export function GlobalSearchPanel() {
 										<button
 											className="w-full text-left text-sm px-2 py-1 rounded hover:bg-slate-900"
 											onClick={() => {
-												if (r.nodeType === 'file') {
-													dispatch(
-														openFile({
-															id: r.id,
-															setActive: true,
-														})
-													);
-												}
+												if (r.nodeType !== 'file')
+													return;
+
+												dispatch(
+													openFile({
+														id: r.id,
+														setActive: true,
+													})
+												);
+												defer(() =>
+													focusActiveEditor()
+												);
 											}}
 											title={r.path}
 										>
@@ -171,20 +184,39 @@ export function GlobalSearchPanel() {
 								);
 							}
 
+							// content match
 							return (
 								<li
 									key={`${r.kind}-${r.fileId}-${r.line}-${r.column}-${idx}`}
 								>
 									<button
 										className="w-full text-left px-2 py-1 rounded hover:bg-slate-900"
-										onClick={() =>
+										onClick={() => {
+											// ✅ If it's already the active file: just jump now
+											if (activeFileId === r.fileId) {
+												defer(() =>
+													revealInActiveEditor(
+														r.line,
+														r.column
+													)
+												);
+												return;
+											}
+
+											// ✅ Otherwise: open, then jump
 											dispatch(
 												openFile({
 													id: r.fileId,
 													setActive: true,
 												})
-											)
-										}
+											);
+											defer(() =>
+												revealInActiveEditor(
+													r.line,
+													r.column
+												)
+											);
+										}}
 									>
 										<div className="text-xs text-slate-400">
 											{r.path}:{r.line}:{r.column}

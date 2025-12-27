@@ -1,5 +1,5 @@
 import Editor from '@monaco-editor/react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { editor as MonacoEditor } from 'monaco-editor';
 import type * as Monaco from 'monaco-editor';
@@ -21,6 +21,42 @@ const langFromExt = (ext: string) => {
 	return 'plaintext';
 };
 
+// ---------------------
+// Focus / Reveal bridge
+// ---------------------
+let __focusEditor: null | (() => void) = null;
+let __revealInEditor: null | ((line: number, column: number) => void) = null;
+
+// ---------------------
+// Pending reveal queue
+// (so reveal happens AFTER file becomes active in editor)
+// ---------------------
+type PendingReveal = { fileId: string; line: number; column: number } | null;
+let __pendingReveal: PendingReveal = null;
+let __pendingFocusFileId: string | null = null;
+
+/** Ask editor to focus once the given file becomes active. */
+export function requestFocusForFile(fileId: string) {
+	__pendingFocusFileId = fileId;
+}
+
+/** Ask editor to reveal a hit once the given file becomes active. */
+export function requestRevealForFile(
+	fileId: string,
+	line: number,
+	column: number
+) {
+	__pendingReveal = { fileId, line, column };
+}
+
+/** Keep old helpers if you still use them elsewhere */
+export function focusActiveEditor() {
+	__focusEditor?.();
+}
+export function revealInActiveEditor(line: number, column: number) {
+	__revealInEditor?.(line, column);
+}
+
 export function EditorPanel() {
 	const dispatch = useAppDispatch();
 	const file = useAppSelector(selectActiveFile);
@@ -37,10 +73,61 @@ export function EditorPanel() {
 
 	const snippetSessionRef = useRef<SnippetSession | null>(null);
 
+	// Cleanup bridge on unmount
+	useEffect(() => {
+		return () => {
+			__focusEditor = null;
+			__revealInEditor = null;
+			__pendingReveal = null;
+			__pendingFocusFileId = null;
+		};
+	}, []);
+
 	if (!file) return <div className="text-slate-400">Select a file…</div>;
 
 	const isMarkdown = file.extension === 'md';
 	const buttons = toolbarTemplates[file.extension] ?? [];
+
+	// When active file changes, apply any pending focus/reveal for THAT file.
+	useEffect(() => {
+		const editor = editorRef.current;
+		const model = editor?.getModel();
+		if (!editor || !model) return;
+
+		// Focus request for this file
+		if (__pendingFocusFileId && __pendingFocusFileId === file.id) {
+			__pendingFocusFileId = null;
+			// Defer 1 tick to let Monaco settle
+			setTimeout(() => {
+				editor.focus();
+			}, 0);
+		}
+
+		// Reveal request for this file
+		if (__pendingReveal && __pendingReveal.fileId === file.id) {
+			const { line, column } = __pendingReveal;
+			__pendingReveal = null;
+
+			// Defer 1–2 ticks because Monaco sometimes needs a moment after value/model updates
+			setTimeout(() => {
+				try {
+					editor.focus();
+					editor.setPosition({ lineNumber: line, column });
+					editor.revealPositionInCenter({ lineNumber: line, column });
+
+					// Optional: also select the cursor position (no highlight range)
+					editor.setSelection({
+						startLineNumber: line,
+						startColumn: column,
+						endLineNumber: line,
+						endColumn: column,
+					});
+				} catch {
+					// ignore
+				}
+			}, 0);
+		}
+	}, [file.id]);
 
 	const clearSnippetSession = () => {
 		const editor = editorRef.current;
@@ -52,10 +139,6 @@ export function EditorPanel() {
 		snippetSessionRef.current = null;
 	};
 
-	/**
-	 * Move the caret to end of inserted snippet and end snippet mode.
-	 * (Used when user presses Tab after last placeholder.)
-	 */
 	const endSnippetAtEnd = () => {
 		const editor = editorRef.current;
 		const model = editor?.getModel();
@@ -76,14 +159,6 @@ export function EditorPanel() {
 		clearSnippetSession();
 	};
 
-	/**
-	 * IMPORTANT behavior:
-	 * - If snippet session is active:
-	 *   - Tab/Shift+Tab should NEVER fall back to Monaco default indentation while placeholder is selected.
-	 *   - When moving past last placeholder (Tab), we END the session and place caret at end.
-	 * - Return true = "we handled it, consume Tab"
-	 * - Return false = "no active session, let Monaco handle Tab"
-	 */
 	const jumpPlaceholder = (dir: 1 | -1): boolean => {
 		const editor = editorRef.current;
 		const model = editor?.getModel();
@@ -93,7 +168,6 @@ export function EditorPanel() {
 
 		const nextIndex = session.index + dir;
 
-		// Shift+Tab before first: keep it at first (consume)
 		if (nextIndex < 0) {
 			session.index = 0;
 			const r = model.getDecorationRange(session.ids[0]);
@@ -106,17 +180,15 @@ export function EditorPanel() {
 			return true;
 		}
 
-		// Tab after last: END snippet (consume)
 		if (nextIndex >= session.ids.length) {
 			endSnippetAtEnd();
 			return true;
 		}
 
-		// Move to next/prev placeholder
 		const range = model.getDecorationRange(session.ids[nextIndex]);
 		if (!range) {
 			clearSnippetSession();
-			return true; // consume
+			return true;
 		}
 
 		session.index = nextIndex;
@@ -140,7 +212,6 @@ export function EditorPanel() {
 
 		let tpl = template;
 
-		// If there is a selection, inject it into the first placeholder (${1:...})
 		if (hasSelection) {
 			tpl = tpl.replace(/\$\{1:([^}]+)\}/, () => `\${1:${selectedText}}`);
 		}
@@ -153,7 +224,6 @@ export function EditorPanel() {
 
 		const finalText = needsNewLine ? `\n${text}` : text;
 
-		// baseOffset must be insertion START (before edits)
 		const baseOffset = model.getOffsetAt(selection.getStartPosition());
 
 		editor.executeEdits('', [
@@ -190,7 +260,6 @@ export function EditorPanel() {
 			const first = model.getDecorationRange(ids[0]);
 			if (first) editor.setSelection(first);
 		} else {
-			// ✅ Fix #1: No placeholders → caret goes to END of inserted snippet
 			const endPos = model.getPositionAt(baseOffset + finalText.length);
 			editor.setSelection({
 				startLineNumber: endPos.lineNumber,
@@ -205,7 +274,6 @@ export function EditorPanel() {
 
 	return (
 		<div className="h-full min-h-0 overflow-hidden flex flex-col">
-			{/* Tabs always shown when at least one file is open */}
 			<TabsBar />
 
 			{buttons.length > 0 && (
@@ -242,6 +310,22 @@ export function EditorPanel() {
 								monacoRef.current =
 									monaco as unknown as typeof Monaco;
 
+								__focusEditor = () => editor.focus();
+								__revealInEditor = (
+									line: number,
+									column: number
+								) => {
+									editor.focus();
+									editor.setPosition({
+										lineNumber: line,
+										column,
+									});
+									editor.revealPositionInCenter({
+										lineNumber: line,
+										column,
+									});
+								};
+
 								const endIfSelectionNotOnActive = () => {
 									const session = snippetSessionRef.current;
 									const model = editor.getModel();
@@ -272,7 +356,6 @@ export function EditorPanel() {
 									endIfSelectionNotOnActive();
 								});
 
-								// ✅ Fix #2: consume Tab while snippet session active
 								editor.addCommand(monaco.KeyCode.Tab, () => {
 									if (!jumpPlaceholder(1)) {
 										editor.trigger('keyboard', 'tab', null);
