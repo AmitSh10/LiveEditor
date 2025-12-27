@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import type { FSNode } from '../../types/fs';
 import type { EditingState } from './useInlineRename';
+import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 
 function SmallBtn(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
 	const { className = '', ...rest } = props;
@@ -121,32 +122,33 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 			editing?.mode === 'rename' && editing.targetId === node.id;
 
 		return (
-			<div className="ml-2">
+			<div>
 				<div
-					className="group relative flex items-center gap-2 pr-10"
+					className="group relative flex items-center gap-2 px-2 py-1 pr-10"
 					onContextMenu={(e) => {
 						e.preventDefault();
 						openMenuAt(node.id, 'folder', e.clientX, e.clientY);
 					}}
 				>
-					<div className="flex items-center gap-2 flex-1 min-w-0">
+					{!isRoot && (
 						<button
 							type="button"
-							className="text-slate-300 font-medium select-none hover:text-white shrink-0"
-							onClick={() => {
-								if (!isRoot) toggleExpanded(node.id);
-							}}
-							title={
-								isRoot ? 'Root' : open ? 'Collapse' : 'Expand'
-							}
+							className="text-slate-400 hover:text-slate-200 transition-colors shrink-0 w-4"
+							onClick={() => toggleExpanded(node.id)}
+							title={open ? 'Collapse' : 'Expand'}
 						>
-							{/* Keep width stable; root should NOT render 'Files' */}
-							{!isRoot && (
-								<span className="inline-block w-4 text-center">
-									{open ? '▾' : '▸'}
-								</span>
-							)}
+							<span className="inline-block w-4 text-center text-base font-bold transition-transform duration-150"
+								style={{
+									transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+									display: 'inline-block'
+								}}
+							>
+								▼
+							</span>
 						</button>
+					)}
+
+					<div className="flex items-center gap-2 flex-1 min-w-0">
 
 						{isRenamingThis && editing ? (
 							<div
@@ -171,9 +173,16 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 								) : null}
 							</div>
 						) : (
-							<div className="truncate text-slate-300 font-medium">
-								{node.name}
-							</div>
+							<>
+								{!isRoot && (
+									<span className={`${getFolderIcon().color}`}>
+										{getFolderIcon().icon}
+									</span>
+								)}
+								<div className="truncate text-slate-300 font-medium">
+									{node.name}
+								</div>
+							</>
 						)}
 					</div>
 
@@ -203,30 +212,32 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 
 				{/* Inline rename / create (no OK/Cancel, blur rules apply) */}
 				{isCreateHere && editing && (
-					<div className="ml-6 mt-1">
-						<StableCaretInput
-							autoFocus
-							className="w-full text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700 focus:outline-none focus:border-slate-500"
-							value={editing.value}
-							onChange={(e) => setEditingValue(e.target.value)}
-							onKeyDown={onKeyForInline}
-							onBlur={onBlurSmart}
-							placeholder={
-								editing.mode === 'newFile'
-									? 'File name (e.g. notes.md)'
-									: 'Folder name'
-							}
-						/>
-						{editing.error ? (
-							<div className="text-xs text-red-300 mt-1">
-								{editing.error}
-							</div>
-						) : null}
+					<div className="flex items-center gap-1 mt-1 ml-6">
+						<div className="flex-1">
+							<StableCaretInput
+								autoFocus
+								className="w-full text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700 focus:outline-none focus:border-slate-500"
+								value={editing.value}
+								onChange={(e) => setEditingValue(e.target.value)}
+								onKeyDown={onKeyForInline}
+								onBlur={onBlurSmart}
+								placeholder={
+									editing.mode === 'newFile'
+										? 'File name (e.g. notes.md)'
+										: 'Folder name'
+								}
+							/>
+							{editing.error ? (
+								<div className="text-xs text-red-300 mt-1">
+									{editing.error}
+								</div>
+							) : null}
+						</div>
 					</div>
 				)}
 
 				{open && (
-					<div className="ml-2">
+					<div className="ml-6">
 						{node.children.map((c) => (
 							<FileTreeNode
 								key={c.id}
@@ -245,9 +256,10 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 	const name = displayName(node);
 	const isRenamingThis =
 		editing?.mode === 'rename' && editing.targetId === node.id;
+	const fileIconConfig = getFileIcon(node.extension || '');
 
 	return (
-		<div className="ml-2">
+		<div>
 			<div
 				className={`group relative flex items-center gap-2 cursor-pointer px-2 py-1 rounded text-sm pr-10
 					${isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900'}
@@ -279,7 +291,12 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 						) : null}
 					</div>
 				) : (
-					<div className="truncate">{name}</div>
+					<>
+						<span className={fileIconConfig.color}>
+							{fileIconConfig.icon}
+						</span>
+						<div className="truncate">{name}</div>
+					</>
 				)}
 
 				{/* kebab (absolute; no layout shift) */}

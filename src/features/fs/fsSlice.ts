@@ -11,6 +11,7 @@ export type FSState = {
 
 	// Tabs: ordered list of open file ids
 	openFileIds: string[];
+	pinnedFileIds: string[]; // list of pinned file ids
 
 	// Global search
 	searchQuery: string;
@@ -30,6 +31,9 @@ const initialState: FSState = persisted
 				? persisted.openFileIds
 				: persisted.activeFileId
 				? [persisted.activeFileId]
+				: [],
+			pinnedFileIds: Array.isArray(persisted.pinnedFileIds)
+				? persisted.pinnedFileIds
 				: [],
 
 			searchQuery:
@@ -54,6 +58,7 @@ const initialState: FSState = persisted
 			root: initial.root,
 			activeFileId: initial.activeFileId,
 			openFileIds: initial.activeFileId ? [initial.activeFileId] : [],
+			pinnedFileIds: [],
 
 			searchQuery: '',
 			searchMode: 'all',
@@ -273,8 +278,13 @@ const fsSlice = createSlice({
 		},
 
 		// Close a tab. If closing the active tab, activates neighbor.
+		// Pinned tabs cannot be closed.
 		closeFile(state, action: PayloadAction<{ id: string }>) {
 			const { id } = action.payload;
+
+			// Prevent closing pinned tabs
+			if (state.pinnedFileIds.includes(id)) return;
+
 			const idx = state.openFileIds.indexOf(id);
 			if (idx === -1) return;
 
@@ -297,6 +307,23 @@ const fsSlice = createSlice({
 				const fallback = firstFileId(state.root);
 				state.activeFileId = fallback;
 				if (fallback) ensureOpen(state, fallback);
+			}
+		},
+
+		// Toggle pin status for a file tab
+		togglePinFile(state, action: PayloadAction<{ id: string }>) {
+			const { id } = action.payload;
+
+			// Only allow pinning files that are actually open
+			if (!state.openFileIds.includes(id)) return;
+
+			const pinIdx = state.pinnedFileIds.indexOf(id);
+			if (pinIdx === -1) {
+				// Pin it
+				state.pinnedFileIds.push(id);
+			} else {
+				// Unpin it
+				state.pinnedFileIds.splice(pinIdx, 1);
 			}
 		},
 
@@ -462,6 +489,7 @@ export const {
 	setActiveFile,
 	openFile,
 	closeFile,
+	togglePinFile,
 	updateFileContent,
 	createFile,
 	createFolder,
