@@ -140,7 +140,12 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 								isRoot ? 'Root' : open ? 'Collapse' : 'Expand'
 							}
 						>
-							{isRoot ? 'Files' : open ? '▾' : '▸'}
+							{/* Keep width stable; root should NOT render 'Files' */}
+							{!isRoot && (
+								<span className="inline-block w-4 text-center">
+									{open ? '▾' : '▸'}
+								</span>
+							)}
 						</button>
 
 						{isRenamingThis && editing ? (

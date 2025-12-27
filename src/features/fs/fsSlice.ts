@@ -3,12 +3,20 @@ import type { FolderNode, FSNode } from '../../types/fs';
 import { createInitialFS } from './fsStore';
 import { loadFS } from './fsPersistence';
 
+export type SearchMode = 'all' | 'names' | 'content';
+
 export type FSState = {
 	root: FolderNode;
 	activeFileId: string | null;
 
 	// Tabs: ordered list of open file ids
 	openFileIds: string[];
+
+	// Global search
+	searchQuery: string;
+	searchMode: SearchMode;
+	matchCase: boolean;
+	extFilters: string[]; // multi-select (["md","ts","tsx"])
 };
 
 const initial = createInitialFS();
@@ -23,11 +31,34 @@ const initialState: FSState = persisted
 				: persisted.activeFileId
 				? [persisted.activeFileId]
 				: [],
+
+			searchQuery:
+				typeof persisted.searchQuery === 'string'
+					? persisted.searchQuery
+					: '',
+			searchMode:
+				persisted.searchMode === 'names' ||
+				persisted.searchMode === 'content' ||
+				persisted.searchMode === 'all'
+					? persisted.searchMode
+					: 'all',
+			matchCase:
+				typeof persisted.matchCase === 'boolean'
+					? persisted.matchCase
+					: false,
+			extFilters: Array.isArray(persisted.extFilters)
+				? persisted.extFilters.filter((x: any) => typeof x === 'string')
+				: [],
 	  }
 	: {
 			root: initial.root,
 			activeFileId: initial.activeFileId,
 			openFileIds: initial.activeFileId ? [initial.activeFileId] : [],
+
+			searchQuery: '',
+			searchMode: 'all',
+			matchCase: false,
+			extFilters: [],
 	  };
 
 // ---------- helpers (internal) ----------
@@ -189,6 +220,28 @@ const fsSlice = createSlice({
 	name: 'fs',
 	initialState,
 	reducers: {
+		// ---------- Global Search ----------
+		setSearchQuery(state, action: PayloadAction<string>) {
+			state.searchQuery = action.payload ?? '';
+		},
+		setSearchMode(state, action: PayloadAction<SearchMode>) {
+			state.searchMode = action.payload;
+		},
+		setMatchCase(state, action: PayloadAction<boolean>) {
+			state.matchCase = !!action.payload;
+		},
+		setExtFilters(state, action: PayloadAction<string[]>) {
+			state.extFilters = Array.isArray(action.payload)
+				? action.payload.filter((x) => typeof x === 'string')
+				: [];
+		},
+		clearSearch(state) {
+			state.searchQuery = '';
+			state.searchMode = 'all';
+			state.matchCase = false;
+			state.extFilters = [];
+		},
+
 		// Tabs-aware: selecting a file also ensures it's opened as a tab.
 		setActiveFile(state, action: PayloadAction<string | null>) {
 			const id = action.payload;
@@ -398,6 +451,14 @@ const fsSlice = createSlice({
 });
 
 export const {
+	// search
+	setSearchQuery,
+	setSearchMode,
+	setMatchCase,
+	setExtFilters,
+	clearSearch,
+
+	// existing
 	setActiveFile,
 	openFile,
 	closeFile,

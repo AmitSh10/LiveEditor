@@ -61,6 +61,8 @@ export function FileTree() {
 
 	return (
 		<>
+			<div className="font-semibold mb-2">Explorer</div>
+
 			<FileTreeNode
 				node={root}
 				rootId={rootId}
