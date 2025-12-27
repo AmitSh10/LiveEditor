@@ -10,6 +10,7 @@ import { updateFileContent } from '../fs/fsSlice';
 import { toolbarTemplates } from '../templates/toolbarTemplates';
 import { parseSnippet } from '../templates/snippetEngine';
 import { PreviewPanel } from '../preview/PreviewPanel';
+import { TabsBar } from './TabsBar';
 
 const langFromExt = (ext: string) => {
 	if (ext === 'md') return 'markdown';
@@ -204,6 +205,9 @@ export function EditorPanel() {
 
 	return (
 		<div className="h-full min-h-0 overflow-hidden flex flex-col">
+			{/* Tabs always shown when at least one file is open */}
+			<TabsBar />
+
 			{buttons.length > 0 && (
 				<div className="mb-2 flex flex-wrap gap-2 text-sm shrink-0">
 					{buttons.map((b) => (

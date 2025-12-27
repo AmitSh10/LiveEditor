@@ -3,15 +3,32 @@ import type { FolderNode, FSNode } from '../../types/fs';
 import { createInitialFS } from './fsStore';
 import { loadFS } from './fsPersistence';
 
-export type FSState = { root: FolderNode; activeFileId: string | null };
+export type FSState = {
+	root: FolderNode;
+	activeFileId: string | null;
+
+	// Tabs: ordered list of open file ids
+	openFileIds: string[];
+};
 
 const initial = createInitialFS();
-const persisted = loadFS();
+const persisted: any = loadFS();
 
-const initialState: FSState = persisted ?? {
-	root: initial.root,
-	activeFileId: initial.activeFileId,
-};
+const initialState: FSState = persisted
+	? {
+			root: persisted.root,
+			activeFileId: persisted.activeFileId ?? null,
+			openFileIds: Array.isArray(persisted.openFileIds)
+				? persisted.openFileIds
+				: persisted.activeFileId
+				? [persisted.activeFileId]
+				: [],
+	  }
+	: {
+			root: initial.root,
+			activeFileId: initial.activeFileId,
+			openFileIds: initial.activeFileId ? [initial.activeFileId] : [],
+	  };
 
 // ---------- helpers (internal) ----------
 
@@ -29,14 +46,6 @@ function genId(prefix: 'f' | 'd' = 'f') {
 
 function normalizeName(name: string) {
 	return (name ?? '').trim();
-}
-
-function nodeDisplayName(node: AnyNode) {
-	if (!node) return '';
-	if (node.type === 'folder') return String(node.name ?? '');
-	const base = String(node.name ?? '');
-	const ext = String(node.extension ?? '');
-	return ext ? `${base}.${ext}` : base;
 }
 
 /**
@@ -143,14 +152,99 @@ function deleteNodeById(root: AnyNode, id: string): boolean {
 	return true;
 }
 
+function isFileIdStillValid(root: AnyNode, id: string): boolean {
+	const n = findNode(root, id);
+	return !!n && n.type === 'file';
+}
+
+function ensureOpen(state: FSState, fileId: string) {
+	if (!state.openFileIds.includes(fileId)) {
+		state.openFileIds.push(fileId);
+	}
+}
+
+function cleanupTabs(state: FSState) {
+	// Remove ids that are no longer real files
+	state.openFileIds = state.openFileIds.filter((id) =>
+		isFileIdStillValid(state.root, id)
+	);
+
+	// Active must be in open tabs if it exists
+	if (
+		state.activeFileId &&
+		isFileIdStillValid(state.root, state.activeFileId)
+	) {
+		ensureOpen(state, state.activeFileId);
+	} else {
+		// If active is invalid, pick a sane replacement
+		state.activeFileId =
+			state.openFileIds[0] ?? firstFileId(state.root) ?? null;
+		if (state.activeFileId) ensureOpen(state, state.activeFileId);
+	}
+}
+
 // ---------- slice ----------
 
 const fsSlice = createSlice({
 	name: 'fs',
 	initialState,
 	reducers: {
+		// Tabs-aware: selecting a file also ensures it's opened as a tab.
 		setActiveFile(state, action: PayloadAction<string | null>) {
-			state.activeFileId = action.payload;
+			const id = action.payload;
+
+			if (!id) {
+				state.activeFileId = null;
+				return;
+			}
+
+			// Only allow activating real files
+			const n = findNode(state.root, id);
+			if (!n || n.type !== 'file') return;
+
+			state.activeFileId = id;
+			ensureOpen(state, id);
+		},
+
+		// Explicit open (idempotent)
+		openFile(
+			state,
+			action: PayloadAction<{ id: string; setActive?: boolean }>
+		) {
+			const { id, setActive = true } = action.payload;
+			const n = findNode(state.root, id);
+			if (!n || n.type !== 'file') return;
+
+			ensureOpen(state, id);
+			if (setActive) state.activeFileId = id;
+		},
+
+		// Close a tab. If closing the active tab, activates neighbor.
+		closeFile(state, action: PayloadAction<{ id: string }>) {
+			const { id } = action.payload;
+			const idx = state.openFileIds.indexOf(id);
+			if (idx === -1) return;
+
+			const wasActive = state.activeFileId === id;
+
+			state.openFileIds.splice(idx, 1);
+
+			if (wasActive) {
+				// Prefer left neighbor, else same index (which becomes right neighbor)
+				const nextId =
+					state.openFileIds[idx - 1] ??
+					state.openFileIds[idx] ??
+					null;
+
+				state.activeFileId = nextId;
+			}
+
+			// If tabs are empty but there are files, choose first file
+			if (!state.activeFileId) {
+				const fallback = firstFileId(state.root);
+				state.activeFileId = fallback;
+				if (fallback) ensureOpen(state, fallback);
+			}
 		},
 
 		updateFileContent(
@@ -233,7 +327,10 @@ const fsSlice = createSlice({
 				content,
 			} as FSNode);
 
-			if (setActive) state.activeFileId = id;
+			if (setActive) {
+				state.activeFileId = id;
+				ensureOpen(state, id);
+			}
 		},
 
 		/**
@@ -272,6 +369,8 @@ const fsSlice = createSlice({
 
 			node.name = parsed.name;
 			node.extension = parsed.extension;
+
+			// Tabs remain valid because id doesn't change.
 		},
 
 		deleteNode(state, action: PayloadAction<{ id: string }>) {
@@ -284,19 +383,24 @@ const fsSlice = createSlice({
 			const deleted = deleteNodeById(state.root, id);
 			if (!deleted) return;
 
+			// Remove from tabs if it was open
+			const tabIdx = state.openFileIds.indexOf(id);
+			if (tabIdx !== -1) state.openFileIds.splice(tabIdx, 1);
+
 			// ensure activeFileId points to an existing file
-			if (state.activeFileId) {
-				const stillExists = findNode(state.root, state.activeFileId);
-				if (!stillExists || stillExists.type !== 'file') {
-					state.activeFileId = firstFileId(state.root);
-				}
+			if (state.activeFileId === id) {
+				state.activeFileId = null;
 			}
+
+			cleanupTabs(state);
 		},
 	},
 });
 
 export const {
 	setActiveFile,
+	openFile,
+	closeFile,
 	updateFileContent,
 	createFile,
 	createFolder,
