@@ -13,10 +13,12 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 	const [selectedEnd, setSelectedEnd] = useState<number | null>(null);
 	const [isSelecting, setIsSelecting] = useState(false);
 
-	// Convert content to bytes
+	// Convert content to UTF-8 bytes
 	const bytes: number[] = [];
-	for (let i = 0; i < content.length; i++) {
-		bytes.push(content.charCodeAt(i));
+	const encoder = new TextEncoder();
+	const utf8Bytes = encoder.encode(content);
+	for (let i = 0; i < utf8Bytes.length; i++) {
+		bytes.push(utf8Bytes[i]);
 	}
 
 	// Group bytes into rows
@@ -31,8 +33,10 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 	// Convert byte to binary string
 	const toBinary = (byte: number) => byte.toString(2).padStart(8, '0');
 
-	// Convert byte to printable ASCII char
+	// Convert byte to printable ASCII char (for bytes 0-127 only)
+	// UTF-8 multi-byte sequences will show as dots
 	const toAscii = (byte: number) => {
+		// Only display standard ASCII printable characters
 		if (byte >= 32 && byte <= 126) {
 			return String.fromCharCode(byte);
 		}

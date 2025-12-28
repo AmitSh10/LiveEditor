@@ -12,11 +12,16 @@ import { parseSnippet } from '../templates/snippetEngine';
 import { PreviewPanel } from '../preview/PreviewPanel';
 import { TabsBar } from './TabsBar';
 import { HexViewer } from './HexViewer';
+import { resolveHtmlReferences } from '../../utils/pathResolver';
 
 const langFromExt = (ext: string) => {
 	if (ext === 'md') return 'markdown';
 	if (ext === 'js') return 'javascript';
 	if (ext === 'ts') return 'typescript';
+	if (ext === 'html' || ext === 'htm') return 'html';
+	if (ext === 'css') return 'css';
+	if (ext === 'json') return 'json';
+	if (ext === 'xml') return 'xml';
 	if (ext === 'py') return 'python';
 	if (ext === 'cs') return 'csharp';
 	return 'plaintext';
@@ -62,6 +67,7 @@ export function EditorPanel() {
 	const dispatch = useAppDispatch();
 	const file = useAppSelector(selectActiveFile);
 	const hexViewEnabled = useAppSelector((s) => s.fs.hexViewEnabled);
+	const root = useAppSelector((s) => s.fs.root);
 
 	const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
 	const monacoRef = useRef<typeof Monaco | null>(null);
@@ -91,7 +97,16 @@ export function EditorPanel() {
 	if (!file) return <div className="text-slate-400">Select a file…</div>;
 
 	// Check if file is an image
-	const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico']);
+	const imageExtensions = new Set([
+		'png',
+		'jpg',
+		'jpeg',
+		'gif',
+		'svg',
+		'webp',
+		'bmp',
+		'ico',
+	]);
 	const isImage = imageExtensions.has(file.extension.toLowerCase());
 
 	const isMarkdown = file.extension === 'md';
@@ -99,18 +114,26 @@ export function EditorPanel() {
 	const buttons = toolbarTemplates[file.extension] ?? [];
 
 	// Debounced HTML content for preview (reduces flashing)
-	const [debouncedHtmlContent, setDebouncedHtmlContent] = useState(file.content);
+	const [debouncedHtmlContent, setDebouncedHtmlContent] = useState(
+		file.content
+	);
 
 	// Debounce HTML preview updates to reduce flashing
 	useEffect(() => {
 		if (!isHtml) return;
 
 		const timer = setTimeout(() => {
-			setDebouncedHtmlContent(file.content);
+			// Resolve file references in HTML
+			const resolvedHtml = resolveHtmlReferences(
+				file.content,
+				root,
+				file.id
+			);
+			setDebouncedHtmlContent(resolvedHtml);
 		}, 300); // 300ms delay
 
 		return () => clearTimeout(timer);
-	}, [file.content, isHtml]);
+	}, [file.content, isHtml, root, file.id]);
 
 	// When active file changes, apply any pending focus/reveal for THAT file.
 	useEffect(() => {
@@ -340,7 +363,9 @@ export function EditorPanel() {
 					// Hex viewer
 					<HexViewer
 						content={file.content}
-						fileName={`${file.name}${file.extension ? `.${file.extension}` : ''}`}
+						fileName={`${file.name}${
+							file.extension ? `.${file.extension}` : ''
+						}`}
 					/>
 				) : isImage ? (
 					// Image viewer
@@ -388,11 +413,13 @@ export function EditorPanel() {
 									};
 
 									const endIfSelectionNotOnActive = () => {
-										const session = snippetSessionRef.current;
+										const session =
+											snippetSessionRef.current;
 										const model = editor.getModel();
 										if (!session || !model) return;
 
-										const activeId = session.ids[session.index];
+										const activeId =
+											session.ids[session.index];
 										const activeRange =
 											model.getDecorationRange(activeId);
 										if (!activeRange)
@@ -408,7 +435,8 @@ export function EditorPanel() {
 												activeRange.endLineNumber &&
 											sel.startColumn >=
 												activeRange.startColumn &&
-											sel.endColumn <= activeRange.endColumn;
+											sel.endColumn <=
+												activeRange.endColumn;
 
 										if (!inside) clearSnippetSession();
 									};
@@ -417,14 +445,22 @@ export function EditorPanel() {
 										endIfSelectionNotOnActive();
 									});
 
-									editor.addCommand(monaco.KeyCode.Tab, () => {
-										if (!jumpPlaceholder(1)) {
-											editor.trigger('keyboard', 'tab', null);
+									editor.addCommand(
+										monaco.KeyCode.Tab,
+										() => {
+											if (!jumpPlaceholder(1)) {
+												editor.trigger(
+													'keyboard',
+													'tab',
+													null
+												);
+											}
 										}
-									});
+									);
 
 									editor.addCommand(
-										monaco.KeyMod.Shift | monaco.KeyCode.Tab,
+										monaco.KeyMod.Shift |
+											monaco.KeyCode.Tab,
 										() => {
 											if (!jumpPlaceholder(-1)) {
 												editor.trigger(
@@ -436,11 +472,14 @@ export function EditorPanel() {
 										}
 									);
 
-									editor.addCommand(monaco.KeyCode.Escape, () =>
-										clearSnippetSession()
+									editor.addCommand(
+										monaco.KeyCode.Escape,
+										() => clearSnippetSession()
 									);
 
-									requestAnimationFrame(() => editor.layout());
+									requestAnimationFrame(() =>
+										editor.layout()
+									);
 								}}
 								onChange={(val) =>
 									dispatch(
@@ -471,6 +510,8 @@ export function EditorPanel() {
 								<PreviewPanel
 									extension={file.extension}
 									content={file.content}
+									root={root}
+									fileId={file.id}
 								/>
 							</div>
 						)}
