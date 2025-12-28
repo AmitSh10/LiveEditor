@@ -13,19 +13,7 @@ import { PreviewPanel } from '../preview/PreviewPanel';
 import { TabsBar } from './TabsBar';
 import { HexViewer } from './HexViewer';
 import { resolveHtmlReferences } from '../../utils/pathResolver';
-
-const langFromExt = (ext: string) => {
-	if (ext === 'md') return 'markdown';
-	if (ext === 'js') return 'javascript';
-	if (ext === 'ts') return 'typescript';
-	if (ext === 'html' || ext === 'htm') return 'html';
-	if (ext === 'css') return 'css';
-	if (ext === 'json') return 'json';
-	if (ext === 'xml') return 'xml';
-	if (ext === 'py') return 'python';
-	if (ext === 'cs') return 'csharp';
-	return 'plaintext';
-};
+import { getLanguageFromExtension } from '../../utils/languageMap';
 
 // ---------------------
 // Focus / Reveal bridge
@@ -254,6 +242,8 @@ export function EditorPanel() {
 
 		clearSnippetSession();
 
+		const eol = model.getEOL(); // "\n" or "\r\n"
+
 		const selectedText = model.getValueInRange(selection);
 		const hasSelection = selectedText.length > 0;
 
@@ -263,13 +253,16 @@ export function EditorPanel() {
 			tpl = tpl.replace(/\$\{1:([^}]+)\}/, () => `\${1:${selectedText}}`);
 		}
 
+		// IMPORTANT: normalize template newlines to model EOL
+		tpl = tpl.replace(/\n/g, eol);
+
 		const { text, placeholders } = parseSnippet(tpl);
 
 		const lineContent = model.getLineContent(selection.startLineNumber);
 		const beforeCursor = lineContent.slice(0, selection.startColumn - 1);
 		const needsNewLine = !hasSelection && beforeCursor.trim().length > 0;
 
-		const finalText = needsNewLine ? `\n${text}` : text;
+		const finalText = needsNewLine ? `${eol}${text}` : text;
 
 		const baseOffset = model.getOffsetAt(selection.getStartPosition());
 
@@ -277,7 +270,8 @@ export function EditorPanel() {
 			{ range: selection, text: finalText, forceMoveMarkers: true },
 		]);
 
-		const extra = needsNewLine ? 1 : 0;
+		// IMPORTANT: extra must match EOL length (1 or 2)
+		const extra = needsNewLine ? eol.length : 0;
 
 		const decorations = placeholders.map((p) => {
 			const start = model.getPositionAt(baseOffset + p.start + extra);
@@ -389,7 +383,9 @@ export function EditorPanel() {
 							<Editor
 								height="100%"
 								theme="vs-dark"
-								language={langFromExt(file.extension)}
+								language={getLanguageFromExtension(
+									file.extension
+								)}
 								value={file.content}
 								onMount={(editor, monaco) => {
 									editorRef.current = editor;

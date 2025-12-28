@@ -38,7 +38,14 @@ function genId(prefix: 'f' | 'd' = 'f'): string {
  */
 function isImageFile(filename: string): boolean {
 	const imageExtensions = new Set([
-		'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'
+		'png',
+		'jpg',
+		'jpeg',
+		'gif',
+		'svg',
+		'webp',
+		'bmp',
+		'ico',
 	]);
 
 	const { extension } = parseFileName(filename);
@@ -51,25 +58,62 @@ function isImageFile(filename: string): boolean {
 function shouldImportFile(filename: string): boolean {
 	const textExtensions = new Set([
 		// Web
-		'html', 'htm', 'css', 'scss', 'sass', 'less',
-		'js', 'jsx', 'ts', 'tsx', 'json',
+		'html',
+		'htm',
+		'css',
+		'scss',
+		'sass',
+		'less',
+		'js',
+		'jsx',
+		'ts',
+		'tsx',
+		'json',
 
 		// Documentation
-		'md', 'markdown', 'txt', 'text',
+		'md',
+		'markdown',
+		'txt',
+		'text',
 
 		// Programming
-		'py', 'java', 'c', 'cpp', 'h', 'hpp', 'cs',
-		'go', 'rs', 'rb', 'php', 'swift', 'kt',
+		'py',
+		'java',
+		'c',
+		'cpp',
+		'h',
+		'hpp',
+		'cs',
+		'go',
+		'rs',
+		'rb',
+		'php',
+		'swift',
+		'kt',
 
 		// Shell/Config
-		'sh', 'bash', 'zsh', 'fish', 'yml', 'yaml',
-		'toml', 'ini', 'conf', 'xml', 'env',
+		'sh',
+		'bash',
+		'zsh',
+		'fish',
+		'yml',
+		'yaml',
+		'toml',
+		'ini',
+		'conf',
+		'xml',
+		'env',
 
 		// Data
-		'sql', 'graphql', 'csv',
+		'sql',
+		'graphql',
+		'csv',
 
 		// Other
-		'vue', 'svelte', 'astro', 'dockerfile',
+		'vue',
+		'svelte',
+		'astro',
+		'dockerfile',
 	]);
 
 	const { extension } = parseFileName(filename);
