@@ -474,6 +474,34 @@ const fsSlice = createSlice({
 
 			cleanupTabs(state);
 		},
+
+		// Import a folder into the root
+		importFolder(state, action: PayloadAction<{ folder: FolderNode }>) {
+			const { folder } = action.payload;
+			if (!folder || folder.type !== 'folder') return;
+
+			// Check if a folder with the same name already exists
+			const existingNames = state.root.children
+				.filter((c: AnyNode) => c?.type === 'folder')
+				.map((c: AnyNode) => c.name);
+
+			let finalName = folder.name;
+
+			// If name exists, append (1), (2), etc.
+			if (existingNames.includes(finalName)) {
+				let counter = 1;
+				while (existingNames.includes(`${folder.name} (${counter})`)) {
+					counter++;
+				}
+				finalName = `${folder.name} (${counter})`;
+			}
+
+			// Add the imported folder with the potentially renamed name
+			state.root.children.push({
+				...folder,
+				name: finalName,
+			});
+		},
 	},
 });
 
@@ -495,6 +523,7 @@ export const {
 	createFolder,
 	renameNode,
 	deleteNode,
+	importFolder,
 } = fsSlice.actions;
 
 export default fsSlice.reducer;

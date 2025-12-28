@@ -1,20 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
-import { useAppSelector } from './app/hooks';
+import { useAppSelector, useAppDispatch } from './app/hooks';
 
 import { Sidebar } from './features/sidebar/Sidebar';
 import { EditorPanel } from './features/editor/EditorPanel';
 import { exportAsZip } from './features/fs/exportZip';
+import { importFolder as importFolderFromFiles } from './features/fs/importFolder';
+import { importFolder } from './features/fs/fsSlice';
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 600;
 const DEFAULT_SIDEBAR_WIDTH = 280;
 
 export default function App() {
+	const dispatch = useAppDispatch();
 	const root = useAppSelector((s) => s.fs.root);
 	const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
 	const [isResizing, setIsResizing] = useState(false);
 	const startXRef = useRef(0);
 	const startWidthRef = useRef(DEFAULT_SIDEBAR_WIDTH);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const [showImportMenu, setShowImportMenu] = useState(false);
 
 	useEffect(() => {
 		const handleMouseMove = (e: MouseEvent) => {
@@ -54,6 +59,33 @@ export default function App() {
 		startWidthRef.current = sidebarWidth;
 	};
 
+	const handleImportClick = () => {
+		setShowImportMenu(true);
+	};
+
+	const handleImportIntoProject = () => {
+		setShowImportMenu(false);
+		fileInputRef.current?.click();
+	};
+
+	const handleFolderSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const files = e.target.files;
+		if (!files || files.length === 0) return;
+
+		try {
+			const folder = await importFolderFromFiles(files);
+			dispatch(importFolder({ folder }));
+		} catch (err) {
+			console.error('Error importing folder:', err);
+			alert('Failed to import folder. Please try again.');
+		}
+
+		// Reset input so the same folder can be imported again
+		if (fileInputRef.current) {
+			fileInputRef.current.value = '';
+		}
+	};
+
 	return (
 		<div className="h-screen bg-slate-950 text-slate-100 flex">
 			<aside
@@ -64,12 +96,77 @@ export default function App() {
 					<Sidebar />
 				</div>
 
-				<button
-					className="mt-3 text-sm px-2 py-1 bg-slate-800 rounded hover:bg-slate-700"
-					onClick={() => exportAsZip(root)}
-				>
-					Download ZIP
-				</button>
+				{/* Hidden file input for folder selection */}
+				<input
+					ref={fileInputRef}
+					type="file"
+					/* @ts-ignore - webkitdirectory is not in TypeScript types but works in all browsers */
+					webkitdirectory=""
+					directory=""
+					multiple
+					onChange={handleFolderSelect}
+					style={{ display: 'none' }}
+				/>
+
+				{/* Import and Export buttons */}
+				<div className="flex gap-2 mt-3">
+					<button
+						className="flex-1 text-sm px-2 py-1 bg-slate-800 rounded hover:bg-slate-700"
+						onClick={handleImportClick}
+						title="Import folder from your computer"
+					>
+						Import Folder
+					</button>
+					<button
+						className="flex-1 text-sm px-2 py-1 bg-slate-800 rounded hover:bg-slate-700"
+						onClick={() => exportAsZip(root)}
+						title="Download as ZIP file"
+					>
+						Export ZIP
+					</button>
+				</div>
+
+				{/* Import Mode Selection Modal */}
+				{showImportMenu && (
+					<div
+						className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+						onClick={() => setShowImportMenu(false)}
+					>
+						<div
+							className="bg-slate-900 border border-slate-700 rounded-lg p-4 min-w-[300px]"
+							onClick={(e) => e.stopPropagation()}
+						>
+							<h3 className="text-lg font-semibold mb-4">Import Folder</h3>
+							<div className="flex flex-col gap-2">
+								<button
+									className="w-full text-left px-4 py-3 bg-slate-800 rounded hover:bg-slate-700 transition-colors"
+									onClick={handleImportIntoProject}
+								>
+									<div className="font-medium">Import into Project</div>
+									<div className="text-xs text-slate-400 mt-1">
+										Add folder to current project
+									</div>
+								</button>
+								<button
+									className="w-full text-left px-4 py-3 bg-slate-800/50 rounded cursor-not-allowed opacity-50"
+									disabled
+									title="Coming soon"
+								>
+									<div className="font-medium">New Project</div>
+									<div className="text-xs text-slate-400 mt-1">
+										Create a new project (Coming soon)
+									</div>
+								</button>
+							</div>
+							<button
+								className="w-full mt-4 px-4 py-2 text-sm bg-slate-700 rounded hover:bg-slate-600"
+								onClick={() => setShowImportMenu(false)}
+							>
+								Cancel
+							</button>
+						</div>
+					</div>
+				)}
 
 				{/* Resize handle */}
 				<div

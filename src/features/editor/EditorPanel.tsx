@@ -85,7 +85,12 @@ export function EditorPanel() {
 
 	if (!file) return <div className="text-slate-400">Select a file…</div>;
 
+	// Check if file is an image
+	const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico']);
+	const isImage = imageExtensions.has(file.extension.toLowerCase());
+
 	const isMarkdown = file.extension === 'md';
+	const isHtml = file.extension === 'html' || file.extension === 'htm';
 	const buttons = toolbarTemplates[file.extension] ?? [];
 
 	// When active file changes, apply any pending focus/reveal for THAT file.
@@ -292,128 +297,151 @@ export function EditorPanel() {
 			)}
 
 			<div className="flex-1 min-h-0 overflow-hidden">
-				<div
-					className={
-						isMarkdown
-							? 'h-full min-h-0 overflow-hidden grid grid-cols-2 gap-2'
-							: 'h-full min-h-0 overflow-hidden'
-					}
-				>
-					<div className="h-full min-h-0 overflow-hidden">
-						<Editor
-							height="100%"
-							theme="vs-dark"
-							language={langFromExt(file.extension)}
-							value={file.content}
-							onMount={(editor, monaco) => {
-								editorRef.current = editor;
-								monacoRef.current =
-									monaco as unknown as typeof Monaco;
-
-								__focusEditor = () => editor.focus();
-								__revealInEditor = (
-									line: number,
-									column: number
-								) => {
-									editor.focus();
-									editor.setPosition({
-										lineNumber: line,
-										column,
-									});
-									editor.revealPositionInCenter({
-										lineNumber: line,
-										column,
-									});
-								};
-
-								const endIfSelectionNotOnActive = () => {
-									const session = snippetSessionRef.current;
-									const model = editor.getModel();
-									if (!session || !model) return;
-
-									const activeId = session.ids[session.index];
-									const activeRange =
-										model.getDecorationRange(activeId);
-									if (!activeRange)
-										return clearSnippetSession();
-
-									const sel = editor.getSelection();
-									if (!sel) return;
-
-									const inside =
-										sel.startLineNumber ===
-											activeRange.startLineNumber &&
-										sel.endLineNumber ===
-											activeRange.endLineNumber &&
-										sel.startColumn >=
-											activeRange.startColumn &&
-										sel.endColumn <= activeRange.endColumn;
-
-									if (!inside) clearSnippetSession();
-								};
-
-								editor.onDidChangeCursorSelection(() => {
-									endIfSelectionNotOnActive();
-								});
-
-								editor.addCommand(monaco.KeyCode.Tab, () => {
-									if (!jumpPlaceholder(1)) {
-										editor.trigger('keyboard', 'tab', null);
-									}
-								});
-
-								editor.addCommand(
-									monaco.KeyMod.Shift | monaco.KeyCode.Tab,
-									() => {
-										if (!jumpPlaceholder(-1)) {
-											editor.trigger(
-												'keyboard',
-												'outdent',
-												null
-											);
-										}
-									}
-								);
-
-								editor.addCommand(monaco.KeyCode.Escape, () =>
-									clearSnippetSession()
-								);
-
-								requestAnimationFrame(() => editor.layout());
-							}}
-							onChange={(val) =>
-								dispatch(
-									updateFileContent({
-										id: file.id,
-										content: val ?? '',
-									})
-								)
-							}
-							options={{
-								minimap: { enabled: false },
-								fontSize: 14,
-								wordWrap: 'on',
-								scrollbar: {
-									vertical: 'auto',
-									horizontal: 'auto',
-									verticalScrollbarSize: 10,
-									horizontalScrollbarSize: 10,
-									alwaysConsumeMouseWheel: false,
-								},
-								scrollBeyondLastLine: false,
-							}}
+				{isImage ? (
+					// Image viewer
+					<div className="h-full w-full flex items-center justify-center bg-slate-900/50 p-4 overflow-auto">
+						<img
+							src={file.content}
+							alt={`${file.name}.${file.extension}`}
+							className="max-w-full max-h-full object-contain"
+							style={{ imageRendering: 'auto' }}
 						/>
 					</div>
-
-					{isMarkdown && (
+				) : (
+					<div
+						className={
+							isMarkdown || isHtml
+								? 'h-full min-h-0 overflow-hidden grid grid-cols-2 gap-2'
+								: 'h-full min-h-0 overflow-hidden'
+						}
+					>
 						<div className="h-full min-h-0 overflow-hidden">
-							<PreviewPanel
-								extension={file.extension}
-								content={file.content}
+							<Editor
+								height="100%"
+								theme="vs-dark"
+								language={langFromExt(file.extension)}
+								value={file.content}
+								onMount={(editor, monaco) => {
+									editorRef.current = editor;
+									monacoRef.current =
+										monaco as unknown as typeof Monaco;
+
+									__focusEditor = () => editor.focus();
+									__revealInEditor = (
+										line: number,
+										column: number
+									) => {
+										editor.focus();
+										editor.setPosition({
+											lineNumber: line,
+											column,
+										});
+										editor.revealPositionInCenter({
+											lineNumber: line,
+											column,
+										});
+									};
+
+									const endIfSelectionNotOnActive = () => {
+										const session = snippetSessionRef.current;
+										const model = editor.getModel();
+										if (!session || !model) return;
+
+										const activeId = session.ids[session.index];
+										const activeRange =
+											model.getDecorationRange(activeId);
+										if (!activeRange)
+											return clearSnippetSession();
+
+										const sel = editor.getSelection();
+										if (!sel) return;
+
+										const inside =
+											sel.startLineNumber ===
+												activeRange.startLineNumber &&
+											sel.endLineNumber ===
+												activeRange.endLineNumber &&
+											sel.startColumn >=
+												activeRange.startColumn &&
+											sel.endColumn <= activeRange.endColumn;
+
+										if (!inside) clearSnippetSession();
+									};
+
+									editor.onDidChangeCursorSelection(() => {
+										endIfSelectionNotOnActive();
+									});
+
+									editor.addCommand(monaco.KeyCode.Tab, () => {
+										if (!jumpPlaceholder(1)) {
+											editor.trigger('keyboard', 'tab', null);
+										}
+									});
+
+									editor.addCommand(
+										monaco.KeyMod.Shift | monaco.KeyCode.Tab,
+										() => {
+											if (!jumpPlaceholder(-1)) {
+												editor.trigger(
+													'keyboard',
+													'outdent',
+													null
+												);
+											}
+										}
+									);
+
+									editor.addCommand(monaco.KeyCode.Escape, () =>
+										clearSnippetSession()
+									);
+
+									requestAnimationFrame(() => editor.layout());
+								}}
+								onChange={(val) =>
+									dispatch(
+										updateFileContent({
+											id: file.id,
+											content: val ?? '',
+										})
+									)
+								}
+								options={{
+									minimap: { enabled: false },
+									fontSize: 14,
+									wordWrap: 'on',
+									scrollbar: {
+										vertical: 'auto',
+										horizontal: 'auto',
+										verticalScrollbarSize: 10,
+										horizontalScrollbarSize: 10,
+										alwaysConsumeMouseWheel: false,
+									},
+									scrollBeyondLastLine: false,
+								}}
 							/>
 						</div>
-					)}
-				</div>
+
+						{isMarkdown && (
+							<div className="h-full min-h-0 overflow-hidden">
+								<PreviewPanel
+									extension={file.extension}
+									content={file.content}
+								/>
+							</div>
+						)}
+
+						{isHtml && (
+							<div className="h-full min-h-0 overflow-hidden">
+								<iframe
+									className="w-full h-full bg-white border-0"
+									srcDoc={file.content}
+									sandbox="allow-scripts allow-same-origin"
+									title="HTML Preview"
+								/>
+							</div>
+						)}
+					</div>
+				)}
 			</div>
 		</div>
 	);
