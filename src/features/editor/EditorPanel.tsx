@@ -1,16 +1,17 @@
 import Editor from '@monaco-editor/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { editor as MonacoEditor } from 'monaco-editor';
 import type * as Monaco from 'monaco-editor';
 
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { selectActiveFile } from '../fs/fsSelectors';
-import { updateFileContent } from '../fs/fsSlice';
+import { updateFileContent, toggleHexView } from '../fs/fsSlice';
 import { toolbarTemplates } from '../templates/toolbarTemplates';
 import { parseSnippet } from '../templates/snippetEngine';
 import { PreviewPanel } from '../preview/PreviewPanel';
 import { TabsBar } from './TabsBar';
+import { HexViewer } from './HexViewer';
 
 const langFromExt = (ext: string) => {
 	if (ext === 'md') return 'markdown';
@@ -60,9 +61,13 @@ export function revealInActiveEditor(line: number, column: number) {
 export function EditorPanel() {
 	const dispatch = useAppDispatch();
 	const file = useAppSelector(selectActiveFile);
+	const hexViewEnabled = useAppSelector((s) => s.fs.hexViewEnabled);
 
 	const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
 	const monacoRef = useRef<typeof Monaco | null>(null);
+
+	// Check if hex view mode is enabled globally
+	const isHexView = hexViewEnabled;
 
 	type SnippetSession = {
 		ids: string[];
@@ -92,6 +97,20 @@ export function EditorPanel() {
 	const isMarkdown = file.extension === 'md';
 	const isHtml = file.extension === 'html' || file.extension === 'htm';
 	const buttons = toolbarTemplates[file.extension] ?? [];
+
+	// Debounced HTML content for preview (reduces flashing)
+	const [debouncedHtmlContent, setDebouncedHtmlContent] = useState(file.content);
+
+	// Debounce HTML preview updates to reduce flashing
+	useEffect(() => {
+		if (!isHtml) return;
+
+		const timer = setTimeout(() => {
+			setDebouncedHtmlContent(file.content);
+		}, 300); // 300ms delay
+
+		return () => clearTimeout(timer);
+	}, [file.content, isHtml]);
 
 	// When active file changes, apply any pending focus/reveal for THAT file.
 	useEffect(() => {
@@ -281,7 +300,27 @@ export function EditorPanel() {
 		<div className="h-full min-h-0 overflow-hidden flex flex-col">
 			<TabsBar />
 
-			{buttons.length > 0 && (
+			{/* Hex View Mode Toggle */}
+			<div className="mb-2 flex items-center gap-2 text-sm shrink-0">
+				<button
+					className={`px-3 py-1 rounded ${
+						isHexView
+							? 'bg-blue-600 hover:bg-blue-700'
+							: 'bg-slate-800 hover:bg-slate-700'
+					}`}
+					onClick={() => dispatch(toggleHexView())}
+					type="button"
+				>
+					{isHexView ? '📝 Text View' : '🔢 Hex View'}
+				</button>
+				{isHexView && (
+					<span className="text-slate-400 text-xs">
+						Viewing all files in hexadecimal mode
+					</span>
+				)}
+			</div>
+
+			{!isHexView && buttons.length > 0 && (
 				<div className="mb-2 flex flex-wrap gap-2 text-sm shrink-0">
 					{buttons.map((b) => (
 						<button
@@ -297,7 +336,13 @@ export function EditorPanel() {
 			)}
 
 			<div className="flex-1 min-h-0 overflow-hidden">
-				{isImage ? (
+				{isHexView ? (
+					// Hex viewer
+					<HexViewer
+						content={file.content}
+						fileName={`${file.name}${file.extension ? `.${file.extension}` : ''}`}
+					/>
+				) : isImage ? (
 					// Image viewer
 					<div className="h-full w-full flex items-center justify-center bg-slate-900/50 p-4 overflow-auto">
 						<img
@@ -434,7 +479,7 @@ export function EditorPanel() {
 							<div className="h-full min-h-0 overflow-hidden">
 								<iframe
 									className="w-full h-full bg-white border-0"
-									srcDoc={file.content}
+									srcDoc={debouncedHtmlContent}
 									sandbox="allow-scripts allow-same-origin"
 									title="HTML Preview"
 								/>

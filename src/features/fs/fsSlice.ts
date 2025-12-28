@@ -13,6 +13,9 @@ export type FSState = {
 	openFileIds: string[];
 	pinnedFileIds: string[]; // list of pinned file ids
 
+	// Hex view mode (global toggle)
+	hexViewEnabled: boolean;
+
 	// Global search
 	searchQuery: string;
 	searchMode: SearchMode;
@@ -35,6 +38,7 @@ const initialState: FSState = persisted
 			pinnedFileIds: Array.isArray(persisted.pinnedFileIds)
 				? persisted.pinnedFileIds
 				: [],
+			hexViewEnabled: false, // Don't persist hex view mode
 
 			searchQuery:
 				typeof persisted.searchQuery === 'string'
@@ -59,6 +63,7 @@ const initialState: FSState = persisted
 			activeFileId: initial.activeFileId,
 			openFileIds: initial.activeFileId ? [initial.activeFileId] : [],
 			pinnedFileIds: [],
+			hexViewEnabled: false,
 
 			searchQuery: '',
 			searchMode: 'all',
@@ -245,6 +250,11 @@ const fsSlice = createSlice({
 			state.searchMode = 'all';
 			state.matchCase = false;
 			state.extFilters = [];
+		},
+
+		// ---------- Hex View ----------
+		toggleHexView(state) {
+			state.hexViewEnabled = !state.hexViewEnabled;
 		},
 
 		// Tabs-aware: selecting a file also ensures it's opened as a tab.
@@ -512,6 +522,9 @@ export const {
 	setMatchCase,
 	setExtFilters,
 	clearSearch,
+
+	// hex view
+	toggleHexView,
 
 	// existing
 	setActiveFile,
