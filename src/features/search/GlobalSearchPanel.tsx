@@ -66,7 +66,7 @@ export function GlobalSearchPanel() {
 					value={query}
 					onChange={(e) => dispatch(setSearchQuery(e.target.value))}
 					placeholder="Search…"
-					className="w-full text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-500"
+					className="w-full text-sm px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-slate-500"
 				/>
 
 				<div className="flex items-center gap-2">
@@ -75,14 +75,14 @@ export function GlobalSearchPanel() {
 						onChange={(e) =>
 							onSetMode(e.target.value as SearchMode)
 						}
-						className="text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700"
+						className="text-sm px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100"
 					>
 						<option value="all">All</option>
 						<option value="names">Names only</option>
 						<option value="content">Content only</option>
 					</select>
 
-					<label className="text-xs flex items-center gap-2 select-none">
+					<label className="text-xs flex items-center gap-2 select-none text-slate-700 dark:text-slate-300">
 						<input
 							type="checkbox"
 							checked={matchCase}
@@ -98,23 +98,23 @@ export function GlobalSearchPanel() {
 				<div className="relative">
 					<button
 						type="button"
-						className="w-full text-left text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700 hover:bg-slate-800"
+						className="w-full text-left text-sm px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
 						onClick={() => setExtOpen((v) => !v)}
 					>
 						{extLabel}
 					</button>
 
 					{extOpen && (
-						<div className="absolute z-10 mt-1 w-full max-h-56 overflow-auto rounded border border-slate-700 bg-slate-950 shadow">
-							<div className="p-2 text-xs text-slate-400">
+						<div className="absolute z-10 mt-1 w-full max-h-56 overflow-auto rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-lg">
+							<div className="p-2 text-xs text-slate-600 dark:text-slate-400">
 								Filter applies to{' '}
-								<span className="text-slate-200">
+								<span className="text-slate-900 dark:text-slate-200">
 									files only
 								</span>
 							</div>
 
 							{allExts.length === 0 ? (
-								<div className="px-3 pb-3 text-xs text-slate-500">
+								<div className="px-3 pb-3 text-xs text-slate-500 dark:text-slate-500">
 									No extensions found.
 								</div>
 							) : (
@@ -126,7 +126,7 @@ export function GlobalSearchPanel() {
 										return (
 											<label
 												key={ext}
-												className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-900 text-sm"
+												className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-900 text-sm text-slate-900 dark:text-slate-100"
 											>
 												<input
 													type="checkbox"
@@ -151,7 +151,7 @@ export function GlobalSearchPanel() {
 			{/* Results */}
 			<div className="mt-3 flex-1 min-h-0 overflow-auto pr-1">
 				{results.length === 0 ? (
-					<div className="text-xs text-slate-500">No matches.</div>
+					<div className="text-xs text-slate-500 dark:text-slate-500">No matches.</div>
 				) : (
 					<ul className="space-y-1">
 						{results.map((r, idx) => {
@@ -159,7 +159,7 @@ export function GlobalSearchPanel() {
 								return (
 									<li key={`${r.kind}-${r.id}-${idx}`}>
 										<button
-											className="w-full text-left text-sm px-2 py-1 rounded hover:bg-slate-900"
+											className="w-full text-left text-sm px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-900"
 											onClick={() => {
 												if (r.nodeType !== 'file')
 													return;
@@ -176,7 +176,7 @@ export function GlobalSearchPanel() {
 											}}
 											title={r.path}
 										>
-											<span className="text-slate-100">
+											<span className="text-slate-900 dark:text-slate-100">
 												{r.name}
 											</span>
 										</button>
@@ -190,7 +190,7 @@ export function GlobalSearchPanel() {
 									key={`${r.kind}-${r.fileId}-${r.line}-${r.column}-${idx}`}
 								>
 									<button
-										className="w-full text-left px-2 py-1 rounded hover:bg-slate-900"
+										className="w-full text-left px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-900"
 										onClick={() => {
 											// ✅ If it's already the active file: just jump now
 											if (activeFileId === r.fileId) {
@@ -218,10 +218,10 @@ export function GlobalSearchPanel() {
 											);
 										}}
 									>
-										<div className="text-xs text-slate-400">
+										<div className="text-xs text-slate-600 dark:text-slate-400">
 											{r.path}:{r.line}:{r.column}
 										</div>
-										<div className="text-sm text-slate-100">
+										<div className="text-sm text-slate-900 dark:text-slate-100 font-mono">
 											{r.preview}
 										</div>
 									</button>

@@ -76,16 +76,16 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 	}, []);
 
 	return (
-		<div className="h-full bg-slate-950 text-slate-100 flex flex-col font-mono text-sm">
-			<div className="mb-4 pb-2 border-b border-slate-700 px-4 pt-4 shrink-0">
+		<div className="h-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-mono text-sm">
+			<div className="mb-4 pb-2 border-b border-slate-200 dark:border-slate-700 px-4 pt-4 shrink-0">
 				<div className="flex items-center justify-between mb-2">
 					<div className="text-lg font-semibold">Hex Viewer: {fileName}</div>
 					<div className="flex items-center gap-3">
 						{/* Display mode toggle */}
 						<div className="flex items-center gap-2">
-							<label className="text-xs text-slate-400">Display:</label>
+							<label className="text-xs text-slate-600 dark:text-slate-400">Display:</label>
 							<select
-								className="text-xs px-2 py-1 bg-slate-800 border border-slate-700 rounded"
+								className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-900 dark:text-slate-100"
 								value={displayMode}
 								onChange={(e) => setDisplayMode(e.target.value as 'hex' | 'binary')}
 							>
@@ -96,9 +96,9 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 
 						{/* Bytes per row selector */}
 						<div className="flex items-center gap-2">
-							<label className="text-xs text-slate-400">Bytes/Row:</label>
+							<label className="text-xs text-slate-600 dark:text-slate-400">Bytes/Row:</label>
 							<select
-								className="text-xs px-2 py-1 bg-slate-800 border border-slate-700 rounded"
+								className="text-xs px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-900 dark:text-slate-100"
 								value={bytesPerRow}
 								onChange={(e) => setBytesPerRow(Number(e.target.value))}
 							>
@@ -110,7 +110,7 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 						</div>
 					</div>
 				</div>
-				<div className="text-xs text-slate-400">
+				<div className="text-xs text-slate-600 dark:text-slate-400">
 					Size: {bytes.length} bytes ({(bytes.length / 1024).toFixed(2)} KB)
 				</div>
 			</div>
@@ -124,9 +124,9 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 							const offsetHex = offset.toString(16).toUpperCase().padStart(8, '0');
 
 							return (
-								<div key={rowIndex} className="flex gap-4 hover:bg-slate-800/20 items-start" style={{ minWidth: 'fit-content' }}>
+								<div key={rowIndex} className="flex gap-4 hover:bg-slate-100 dark:hover:bg-slate-800/20 items-start" style={{ minWidth: 'fit-content' }}>
 									{/* Offset */}
-									<div className="text-blue-400 select-none shrink-0" style={{ minWidth: '70px' }}>
+									<div className="text-blue-600 dark:text-blue-400 select-none shrink-0" style={{ minWidth: '70px' }}>
 										{offsetHex}
 									</div>
 
@@ -144,8 +144,8 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 														selected
 															? 'bg-blue-600/60 text-white'
 															: isHovered
-															? 'bg-yellow-600/40 text-yellow-200'
-															: 'text-green-400'
+															? 'bg-yellow-400/40 dark:bg-yellow-600/40 text-yellow-900 dark:text-yellow-200'
+															: 'text-green-600 dark:text-green-400'
 													}`}
 													onMouseDown={() => handleMouseDown(globalIndex)}
 													onMouseEnter={() => {
@@ -171,14 +171,14 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 				</div>
 
 				{/* Fixed ASCII column - always 32 characters wide */}
-				<div className="border-l border-slate-700 pl-4 pr-4 overflow-y-auto shrink-0" style={{ width: '280px' }}>
+				<div className="border-l border-slate-200 dark:border-slate-700 pl-4 pr-4 overflow-y-auto shrink-0" style={{ width: '280px' }}>
 					<div className="space-y-0">
 						{rows.map((row, rowIndex) => {
 							const offset = rowIndex * bytesPerRow;
 
 							return (
-								<div key={rowIndex} className="hover:bg-slate-800/20">
-									<div className="text-slate-300">
+								<div key={rowIndex} className="hover:bg-slate-100 dark:hover:bg-slate-800/20">
+									<div className="text-slate-700 dark:text-slate-300">
 										{row.map((byte, byteIndex) => {
 											const globalIndex = offset + byteIndex;
 											const isHovered = hoveredIndex === globalIndex;
@@ -191,7 +191,7 @@ export function HexViewer({ content, fileName }: HexViewerProps) {
 														selected
 															? 'bg-blue-600/60 text-white'
 															: isHovered
-															? 'bg-yellow-600/40 text-yellow-200'
+															? 'bg-yellow-400/40 dark:bg-yellow-600/40 text-yellow-900 dark:text-yellow-200'
 															: ''
 													}`}
 													onMouseDown={() => handleMouseDown(globalIndex)}

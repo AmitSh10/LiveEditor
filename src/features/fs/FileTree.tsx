@@ -86,14 +86,14 @@ export function FileTree() {
 			{menu && menuNode && (
 				<div
 					ref={menuRef}
-					className="fixed z-50 rounded bg-slate-900 border border-slate-700 shadow-lg overflow-hidden"
+					className="fixed z-50 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-lg overflow-hidden"
 					style={{ left: menu.x, top: menu.y, minWidth: 180 }}
 				>
 					{/* Folder actions */}
 					{menuNode.type === 'folder' && (
 						<>
 							<button
-								className="w-full text-left px-3 py-2 text-sm hover:bg-slate-800"
+								className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
 								onClick={() => {
 									setMenu(null);
 									beginNewFile(menuNode.id);
@@ -102,7 +102,7 @@ export function FileTree() {
 								+ New file
 							</button>
 							<button
-								className="w-full text-left px-3 py-2 text-sm hover:bg-slate-800"
+								className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
 								onClick={() => {
 									setMenu(null);
 									beginNewFolder(menuNode.id);
@@ -113,9 +113,9 @@ export function FileTree() {
 
 							{!menuIsRoot && (
 								<>
-									<div className="h-px bg-slate-700 my-1" />
+									<div className="h-px bg-slate-300 dark:bg-slate-700 my-1" />
 									<button
-										className="w-full text-left px-3 py-2 text-sm hover:bg-slate-800"
+										className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
 										onClick={() => {
 											setMenu(null);
 											beginRename(menuNode);
@@ -124,7 +124,7 @@ export function FileTree() {
 										Rename
 									</button>
 									<button
-										className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-800"
+										className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-300 hover:bg-slate-100 dark:hover:bg-slate-800"
 										onClick={() => confirmDelete(menuNode)}
 									>
 										Delete
@@ -138,7 +138,7 @@ export function FileTree() {
 					{menuNode.type === 'file' && (
 						<>
 							<button
-								className="w-full text-left px-3 py-2 text-sm hover:bg-slate-800"
+								className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
 								onClick={() => {
 									setMenu(null);
 									beginRename(menuNode);
@@ -147,7 +147,7 @@ export function FileTree() {
 								Rename
 							</button>
 							<button
-								className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-slate-800"
+								className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-300 hover:bg-slate-100 dark:hover:bg-slate-800"
 								onClick={() => confirmDelete(menuNode)}
 							>
 								Delete

@@ -21,7 +21,7 @@ export function TabsBar() {
 	});
 
 	return (
-		<div className="shrink-0 border-b border-slate-800 bg-slate-950/40 overflow-x-auto">
+		<div className="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 overflow-x-auto">
 			<div className="flex items-center gap-1 px-2 py-1">
 				{sortedFiles.map((f) => {
 					const ext = (f.extension ?? '').trim();
@@ -36,8 +36,8 @@ export function TabsBar() {
 							className={`flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer select-none whitespace-nowrap
 								${
 									isActive
-										? 'bg-slate-800 text-white'
-										: 'bg-slate-900/40 text-slate-300 hover:bg-slate-800/60'
+										? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white'
+										: 'bg-slate-100 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
 								}
 							`}
 							onClick={() => dispatch(setActiveFile(f.id))}
@@ -51,10 +51,10 @@ export function TabsBar() {
 							{/* Pin button */}
 							<button
 								type="button"
-								className={`text-xs px-1 rounded hover:bg-black/20 ${
+								className={`text-xs px-1 rounded hover:bg-slate-300 dark:hover:bg-black/20 ${
 									isActive
-										? 'text-slate-200'
-										: 'text-slate-400'
+										? 'text-slate-700 dark:text-slate-200'
+										: 'text-slate-500 dark:text-slate-400'
 								}`}
 								onClick={(e) => {
 									e.stopPropagation();
@@ -68,10 +68,10 @@ export function TabsBar() {
 							{/* Close button */}
 							<button
 								type="button"
-								className={`text-xs px-1 rounded hover:bg-black/20 ${
+								className={`text-xs px-1 rounded hover:bg-slate-300 dark:hover:bg-black/20 ${
 									isActive
-										? 'text-slate-200'
-										: 'text-slate-400'
+										? 'text-slate-700 dark:text-slate-200'
+										: 'text-slate-500 dark:text-slate-400'
 								} ${isPinned ? 'opacity-50 cursor-not-allowed' : ''}`}
 								onClick={(e) => {
 									e.stopPropagation();

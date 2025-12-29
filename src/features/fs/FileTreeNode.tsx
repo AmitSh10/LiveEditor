@@ -10,10 +10,10 @@ function SmallBtn(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
 			type="button"
 			className={
 				'text-sm font-bold px-2.5 py-1.5 rounded-md leading-none ' +
-				'bg-slate-800/80 text-slate-100 ' +
-				'border border-slate-600/70 ' +
-				'shadow-sm shadow-black/30 ' +
-				'hover:bg-slate-700/80 hover:border-slate-500 ' +
+				'bg-slate-200 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 ' +
+				'border border-slate-300 dark:border-slate-600/70 ' +
+				'shadow-sm shadow-black/10 dark:shadow-black/30 ' +
+				'hover:bg-slate-300 dark:hover:bg-slate-700/80 hover:border-slate-400 dark:hover:border-slate-500 ' +
 				'focus:outline-none focus:ring-2 focus:ring-slate-400/40 ' +
 				className
 			}
@@ -130,7 +130,7 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 					{!isRoot && (
 						<button
 							type="button"
-							className="text-slate-400 hover:text-slate-200 transition-colors shrink-0 w-4"
+							className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors shrink-0 w-4"
 							onClick={() => toggleExpanded(node.id)}
 							title={open ? 'Collapse' : 'Expand'}
 						>
@@ -156,7 +156,7 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 							>
 								<StableCaretInput
 									autoFocus
-									className="w-full text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700 focus:outline-none focus:border-slate-500"
+									className="w-full text-sm px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-slate-500"
 									value={editing.value}
 									onChange={(e) =>
 										setEditingValue(e.target.value)
@@ -180,7 +180,7 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 										{getFolderIcon().icon}
 									</span>
 								)}
-								<div className="truncate text-slate-300 font-medium">
+								<div className="truncate text-slate-700 dark:text-slate-300 font-medium">
 									{node.name}
 								</div>
 							</>
@@ -217,7 +217,7 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 						<div className="flex-1">
 							<StableCaretInput
 								autoFocus
-								className="w-full text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700 focus:outline-none focus:border-slate-500"
+								className="w-full text-sm px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-slate-500"
 								value={editing.value}
 								onChange={(e) =>
 									setEditingValue(e.target.value)
@@ -265,7 +265,7 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 		<div>
 			<div
 				className={`group relative flex items-center gap-2 cursor-pointer px-2 py-1 rounded text-sm pr-10
-					${isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900'}
+					${isActive ? 'bg-blue-100 dark:bg-slate-800 text-blue-900 dark:text-white' : 'text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'}
 				`}
 				onClick={() => onSelectFile(node.id)}
 				onContextMenu={(e) => {
@@ -280,7 +280,7 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 					>
 						<StableCaretInput
 							autoFocus
-							className="w-full text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700 focus:outline-none focus:border-slate-500"
+							className="w-full text-sm px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-slate-500"
 							value={editing.value}
 							onChange={(e) => setEditingValue(e.target.value)}
 							onKeyDown={onKeyForInline}

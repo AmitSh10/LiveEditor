@@ -56,6 +56,7 @@ export function EditorPanel() {
 	const file = useAppSelector(selectActiveFile);
 	const hexViewEnabled = useAppSelector((s) => s.fs.hexViewEnabled);
 	const root = useAppSelector((s) => s.fs.root);
+	const theme = useAppSelector((s) => s.theme.theme);
 
 	const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
 	const monacoRef = useRef<typeof Monaco | null>(null);
@@ -82,7 +83,7 @@ export function EditorPanel() {
 		};
 	}, []);
 
-	if (!file) return <div className="text-slate-400">Select a file…</div>;
+	if (!file) return <div className="text-slate-500 dark:text-slate-400">Select a file…</div>;
 
 	// Check if file is an image
 	const imageExtensions = new Set([
@@ -323,7 +324,7 @@ export function EditorPanel() {
 					className={`px-3 py-1 rounded ${
 						isHexView
 							? 'bg-blue-600 hover:bg-blue-700'
-							: 'bg-slate-800 hover:bg-slate-700'
+							: 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
 					}`}
 					onClick={() => dispatch(toggleHexView())}
 					type="button"
@@ -331,7 +332,7 @@ export function EditorPanel() {
 					{isHexView ? '📝 Text View' : '🔢 Hex View'}
 				</button>
 				{isHexView && (
-					<span className="text-slate-400 text-xs">
+					<span className="text-slate-500 dark:text-slate-400 text-xs">
 						Viewing all files in hexadecimal mode
 					</span>
 				)}
@@ -342,7 +343,7 @@ export function EditorPanel() {
 					{buttons.map((b) => (
 						<button
 							key={b.id}
-							className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700"
+							className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
 							onClick={() => insert(b.insert)}
 							type="button"
 						>
@@ -363,7 +364,7 @@ export function EditorPanel() {
 					/>
 				) : isImage ? (
 					// Image viewer
-					<div className="h-full w-full flex items-center justify-center bg-slate-900/50 p-4 overflow-auto">
+					<div className="h-full w-full flex items-center justify-center bg-slate-100 dark:bg-slate-900/50 p-4 overflow-auto">
 						<img
 							src={file.content}
 							alt={`${file.name}.${file.extension}`}
@@ -382,7 +383,7 @@ export function EditorPanel() {
 						<div className="h-full min-h-0 overflow-hidden">
 							<Editor
 								height="100%"
-								theme="vs-dark"
+								theme={theme === 'dark' ? 'vs-dark' : 'light'}
 								language={getLanguageFromExtension(
 									file.extension
 								)}

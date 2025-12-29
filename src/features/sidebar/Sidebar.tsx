@@ -10,13 +10,13 @@ export function Sidebar() {
 	return (
 		<div className="h-full flex flex-col min-h-0">
 			{/* Tab bar */}
-			<div className="flex items-center gap-1 border-b border-slate-800 pb-2">
+			<div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 pb-2">
 				<button
 					className={[
 						'px-2 py-1 rounded text-sm',
 						tab === 'files'
-							? 'bg-slate-800 text-slate-100'
-							: 'text-slate-300 hover:bg-slate-900',
+							? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
+							: 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900',
 					].join(' ')}
 					onClick={() => setTab('files')}
 					title="Files"
@@ -30,8 +30,8 @@ export function Sidebar() {
 					className={[
 						'px-2 py-1 rounded text-sm',
 						tab === 'search'
-							? 'bg-slate-800 text-slate-100'
-							: 'text-slate-300 hover:bg-slate-900',
+							? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
+							: 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900',
 					].join(' ')}
 					onClick={() => setTab('search')}
 					title="Search"
