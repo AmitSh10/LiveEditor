@@ -11,3 +11,33 @@ body,
 body {
 	margin: 0;
 }
+
+/* Monaco Editor: Completely disable all tooltips */
+.monaco-editor .monaco-hover,
+.monaco-hover,
+.monaco-editor .monaco-aria-container,
+.monaco-editor .parameter-hints-widget,
+.monaco-editor .suggest-widget,
+.monaco-editor .editor-widget,
+.monaco-editor .context-view,
+.monaco-aria-container {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
+/* Keep code completion and important widgets visible */
+.monaco-editor .suggest-widget.visible,
+.monaco-editor .parameter-hints-widget.visible {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+}
+
+/* Ensure find widget is always visible and clickable */
+.monaco-editor .find-widget {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	z-index: 1000;
+}

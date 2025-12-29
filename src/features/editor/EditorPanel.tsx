@@ -1,5 +1,5 @@
 import Editor from '@monaco-editor/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 
 import type { editor as MonacoEditor } from 'monaco-editor';
 import type * as Monaco from 'monaco-editor';
@@ -14,6 +14,7 @@ import { TabsBar } from './TabsBar';
 import { HexViewer } from './HexViewer';
 import { resolveHtmlReferences } from '../../utils/pathResolver';
 import { getLanguageFromExtension } from '../../utils/languageMap';
+import { formatCode } from '../../utils/formatter';
 
 // ---------------------
 // Focus / Reveal bridge
@@ -339,7 +340,7 @@ export function EditorPanel() {
 			</div>
 
 			{!isHexView && buttons.length > 0 && (
-				<div className="mb-2 flex flex-wrap gap-2 text-sm shrink-0">
+				<div className="mb-6 flex flex-wrap gap-2 text-sm shrink-0">
 					{buttons.map((b) => (
 						<button
 							key={b.id}
@@ -382,6 +383,7 @@ export function EditorPanel() {
 					>
 						<div className="h-full min-h-0 overflow-hidden">
 							<Editor
+								key={file.id}
 								height="100%"
 								theme={theme === 'dark' ? 'vs-dark' : 'light'}
 								language={getLanguageFromExtension(
@@ -472,6 +474,39 @@ export function EditorPanel() {
 									editor.addCommand(
 										monaco.KeyCode.Escape,
 										() => clearSnippetSession()
+									);
+
+									// Format document command (Shift+Alt+F)
+									editor.addCommand(
+										monaco.KeyMod.Shift |
+											monaco.KeyMod.Alt |
+											monaco.KeyCode.KeyF,
+										async () => {
+											const model = editor.getModel();
+											if (!model) return;
+
+											const content = model.getValue();
+											const formatted = await formatCode(
+												content,
+												file.extension
+											);
+
+											if (formatted !== content) {
+												const position = editor.getPosition();
+												editor.executeEdits('', [
+													{
+														range: model.getFullModelRange(),
+														text: formatted,
+														forceMoveMarkers: true,
+													},
+												]);
+
+												// Restore cursor position (approximate)
+												if (position) {
+													editor.setPosition(position);
+												}
+											}
+										}
 									);
 
 									requestAnimationFrame(() =>

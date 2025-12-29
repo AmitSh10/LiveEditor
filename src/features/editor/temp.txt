@@ -1,0 +1,4 @@
+									editor.addCommand(
+										monaco.KeyCode.Escape,
+										() => clearSnippetSession()
+									);

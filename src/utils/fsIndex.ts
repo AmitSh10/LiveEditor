@@ -1,4 +1,4 @@
-import type { FSNode, FileNode, FolderNode } from '../types/fs';
+import type { FSNode, FileNode } from '../types/fs';
 
 /**
  * Fast lookup index for O(1) file system operations
@@ -25,7 +25,9 @@ export function buildFsIndex(root: FSNode): FsIndex {
 
 		if (node.type === 'file') {
 			// Build absolute path for files
-			const fileName = node.extension ? `${node.name}.${node.extension}` : node.name;
+			const fileName = node.extension
+				? `${node.name}.${node.extension}`
+				: node.name;
 			const absPath = currentPath + '/' + fileName;
 
 			idToAbsPath.set(node.id, absPath);
@@ -56,7 +58,7 @@ export function buildFsIndex(root: FSNode): FsIndex {
  * Normalize a relative path by resolving . and .. segments
  */
 function normalizePath(path: string): string {
-	const parts = path.split('/').filter(p => p && p !== '.');
+	const parts = path.split('/').filter((p) => p && p !== '.');
 	const result: string[] = [];
 
 	for (const part of parts) {
@@ -137,7 +139,8 @@ export function resolveRelativePathFast(
 
 		// Get the directory of the source file
 		const lastSlash = sourceAbsPath.lastIndexOf('/');
-		const sourceDir = lastSlash > 0 ? sourceAbsPath.slice(0, lastSlash) : '';
+		const sourceDir =
+			lastSlash > 0 ? sourceAbsPath.slice(0, lastSlash) : '';
 
 		// Combine source directory with relative path
 		const combinedPath = sourceDir + '/' + decodedPath;
