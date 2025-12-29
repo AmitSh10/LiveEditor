@@ -101,9 +101,6 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 		setEditingValue,
 		onKeyForInline,
 		onBlurSmart,
-		beginRename,
-		beginNewFile,
-		beginNewFolder,
 		onSelectFile,
 		openMenuAt,
 	} = props;
@@ -137,10 +134,13 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 							onClick={() => toggleExpanded(node.id)}
 							title={open ? 'Collapse' : 'Expand'}
 						>
-							<span className="inline-block w-4 text-center text-base font-bold transition-transform duration-150"
+							<span
+								className="inline-block w-4 text-center text-base font-bold transition-transform duration-150"
 								style={{
-									transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
-									display: 'inline-block'
+									transform: open
+										? 'rotate(0deg)'
+										: 'rotate(-90deg)',
+									display: 'inline-block',
 								}}
 							>
 								▼
@@ -149,7 +149,6 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 					)}
 
 					<div className="flex items-center gap-2 flex-1 min-w-0">
-
 						{isRenamingThis && editing ? (
 							<div
 								className="flex-1 min-w-0"
@@ -175,7 +174,9 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 						) : (
 							<>
 								{!isRoot && (
-									<span className={`${getFolderIcon().color}`}>
+									<span
+										className={`${getFolderIcon().color}`}
+									>
 										{getFolderIcon().icon}
 									</span>
 								)}
@@ -218,7 +219,9 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 								autoFocus
 								className="w-full text-sm px-2 py-1 rounded bg-slate-900 border border-slate-700 focus:outline-none focus:border-slate-500"
 								value={editing.value}
-								onChange={(e) => setEditingValue(e.target.value)}
+								onChange={(e) =>
+									setEditingValue(e.target.value)
+								}
 								onKeyDown={onKeyForInline}
 								onBlur={onBlurSmart}
 								placeholder={

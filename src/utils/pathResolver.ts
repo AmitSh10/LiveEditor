@@ -74,18 +74,14 @@ export function resolveRelativePath(
 	// Find the source file
 	const sourceFile = findNodeById(root, sourceFileId);
 	if (!sourceFile || sourceFile.type !== 'file') {
-		console.log('resolveRelativePath: source file not found', { sourceFileId });
 		return null;
 	}
 
 	// Get the directory containing the source file
 	const sourceParent = findParentFolder(root, sourceFileId);
 	if (!sourceParent) {
-		console.log('resolveRelativePath: source parent not found', { sourceFileId });
 		return null;
 	}
-
-	console.log('resolveRelativePath: starting resolution', { relativePath, sourceParent: sourceParent.name });
 
 	// Parse the relative path
 	const pathParts = relativePath.split('/').filter(p => p && p !== '.');
@@ -101,20 +97,17 @@ export function resolveRelativePath(
 			// Go up one level
 			const parent = findParentFolder(root, currentFolder.id);
 			if (!parent) {
-				console.log('resolveRelativePath: cannot go up from', currentFolder.name);
 				return null; // Can't go above root
 			}
 			currentFolder = parent;
 		} else if (i === pathParts.length - 1) {
 			// Last part - this is the file we're looking for
 			const file = findFileInFolder(currentFolder, part);
-			console.log('resolveRelativePath: searching for file', { part, folder: currentFolder.name, found: !!file });
 			return file;
 		} else {
 			// Navigate into a subfolder
 			const folder = findFolderInFolder(currentFolder, part);
 			if (!folder) {
-				console.log('resolveRelativePath: folder not found', { part, currentFolder: currentFolder.name });
 				return null;
 			}
 			currentFolder = folder;
@@ -287,6 +280,9 @@ export function resolveCssReferences(
 	return result;
 }
 
+// Cache for resolved paths to avoid repeated lookups
+const pathCache = new Map<string, string | null>();
+
 /**
  * Resolve file references in Markdown content
  * Replaces image references with actual file content
@@ -306,16 +302,29 @@ export function resolveMarkdownReferences(
 				return match; // External or data URL, leave as is
 			}
 
+			// Create cache key combining sourceFileId and path
+			const cacheKey = `${sourceFileId}:${path}`;
+
+			// Check cache first
+			if (pathCache.has(cacheKey)) {
+				const cached = pathCache.get(cacheKey);
+				if (cached) {
+					return `![${alt}](${cached})`;
+				}
+				return match;
+			}
+
+			// Resolve and cache the result
 			const file = resolveRelativePath(root, sourceFileId, path);
-			console.log('Markdown image resolution:', { path, found: !!file, hasContent: !!file?.content, isDataUrl: file?.content?.startsWith('data:'), contentLength: file?.content?.length });
 			if (file && file.content && file.content.startsWith('data:')) {
 				// Escape $ signs in the data URL to prevent regex replacement issues
 				const escapedContent = file.content.replace(/\$/g, '$$$$');
-				const replacement = `![${alt}](${escapedContent})`;
-				console.log('Markdown replacement:', { replacementLength: replacement.length });
-				return replacement;
+				pathCache.set(cacheKey, escapedContent);
+				return `![${alt}](${escapedContent})`;
 			}
 
+			// Cache the null result too
+			pathCache.set(cacheKey, null);
 			return match; // Couldn't resolve, leave as is
 		}
 	);

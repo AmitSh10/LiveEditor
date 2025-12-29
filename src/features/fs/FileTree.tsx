@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import type { FSNode } from '../../types/fs';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { setActiveFile } from './fsSlice';
