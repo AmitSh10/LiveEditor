@@ -18,6 +18,29 @@ function findNode(root: FSNode, id: string): FSNode | null {
 	return null;
 }
 
+// Helper to build file/folder path
+function buildNodePath(root: FSNode, targetId: string): string | null {
+	function search(node: FSNode, path: string[], isRoot: boolean): string | null {
+		if (node.id === targetId) {
+			if (node.type === 'file') {
+				const fileName = node.extension ? `${node.name}.${node.extension}` : node.name;
+				return [...path, fileName].join('/');
+			}
+			return [...path, node.name].join('/');
+		}
+		if (node.type === 'folder') {
+			for (const child of node.children) {
+				// Skip adding root folder name to path
+				const newPath = isRoot ? path : [...path, node.name];
+				const result = search(child, newPath, false);
+				if (result) return result;
+			}
+		}
+		return null;
+	}
+	return search(root, [], true);
+}
+
 export function FileTree() {
 	const dispatch = useAppDispatch();
 	const root = useAppSelector((s) => s.fs.root);
@@ -58,6 +81,47 @@ export function FileTree() {
 	}, [menu, root]);
 
 	const menuIsRoot = menuNode?.id === rootId;
+
+	const handleCopyPath = (nodeId: string, relative: boolean) => {
+		const targetPath = buildNodePath(root, nodeId);
+		if (!targetPath) return;
+
+		if (relative && activeId) {
+			// Calculate relative path from active file to target file/folder
+			const sourcePath = buildNodePath(root, activeId);
+			if (sourcePath) {
+				const sourceDir = sourcePath.split('/').slice(0, -1); // Remove filename
+				const targetParts = targetPath.split('/');
+
+				// Find common path
+				let commonLength = 0;
+				while (
+					commonLength < sourceDir.length &&
+					commonLength < targetParts.length - 1 &&
+					sourceDir[commonLength] === targetParts[commonLength]
+				) {
+					commonLength++;
+				}
+
+				// Build relative path
+				const upLevels = sourceDir.length - commonLength;
+				const downPath = targetParts.slice(commonLength);
+
+				const relativePath = upLevels > 0
+					? '../'.repeat(upLevels) + downPath.join('/')
+					: './' + downPath.join('/');
+
+				navigator.clipboard.writeText(relativePath);
+			} else {
+				// Fallback to absolute if can't determine source
+				navigator.clipboard.writeText('/' + targetPath);
+			}
+		} else {
+			// Absolute path from root
+			navigator.clipboard.writeText('/' + targetPath);
+		}
+		setMenu(null);
+	};
 
 	return (
 		<>
@@ -116,6 +180,19 @@ export function FileTree() {
 									<div className="h-px bg-slate-300 dark:bg-slate-700 my-1" />
 									<button
 										className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+										onClick={() => handleCopyPath(menuNode.id, false)}
+									>
+										Copy Path
+									</button>
+									<button
+										className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+										onClick={() => handleCopyPath(menuNode.id, true)}
+									>
+										Copy Relative Path
+									</button>
+									<div className="h-px bg-slate-300 dark:bg-slate-700 my-1" />
+									<button
+										className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
 										onClick={() => {
 											setMenu(null);
 											beginRename(menuNode);
@@ -137,6 +214,19 @@ export function FileTree() {
 					{/* File actions */}
 					{menuNode.type === 'file' && (
 						<>
+							<button
+								className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+								onClick={() => handleCopyPath(menuNode.id, false)}
+							>
+								Copy Path
+							</button>
+							<button
+								className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+								onClick={() => handleCopyPath(menuNode.id, true)}
+							>
+								Copy Relative Path
+							</button>
+							<div className="h-px bg-slate-300 dark:bg-slate-700 my-1" />
 							<button
 								className="w-full text-left px-3 py-2 text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
 								onClick={() => {

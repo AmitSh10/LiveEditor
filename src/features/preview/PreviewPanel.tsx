@@ -22,8 +22,18 @@ const CustomImg = memo(({
 		return <img src={src} {...props} />;
 	}
 
+	// Decode URL-encoded src (ReactMarkdown encodes paths)
+	let decodedSrc = src;
+	try {
+		if (/%[0-9A-Fa-f]{2}/.test(src)) {
+			decodedSrc = decodeURIComponent(src);
+		}
+	} catch {
+		// If decoding fails, use original
+	}
+
 	// Resolve the src using the fast index
-	const resolvedSrc = resolveImgSrc(fsIndex, activeFileId, src);
+	const resolvedSrc = resolveImgSrc(fsIndex, activeFileId, decodedSrc);
 
 	return <img src={resolvedSrc} {...props} />;
 });
@@ -65,6 +75,94 @@ export function PreviewPanel({
 		return () => clearTimeout(timer);
 	}, [normalized]);
 
+	// Auto-encode markdown image paths with special characters
+	const processedContent = useMemo(() => {
+		if (extension !== 'md') return debouncedContent;
+
+		// Process the content to handle image syntax
+		let lastIndex = 0;
+		const output: string[] = [];
+
+		// Match image syntax: ![alt](path)
+		// We need to carefully parse to handle parentheses in the path
+		const regex = /!\[([^\]]*)\]\(/g;
+		let match;
+
+		while ((match = regex.exec(debouncedContent)) !== null) {
+			const startIndex = match.index;
+			const altText = match[1];
+			const pathStartIndex = match.index + match[0].length;
+
+			// Add content before this match
+			output.push(debouncedContent.slice(lastIndex, startIndex));
+
+			// Now find the closing ) for the image path
+			// We need to handle paths that might contain parentheses
+			let path = '';
+			let i = pathStartIndex;
+			let isInAngleBrackets = false;
+
+			// Check if path starts with <
+			if (debouncedContent[i] === '<') {
+				isInAngleBrackets = true;
+				// Find the closing > and then the )
+				const closeAngle = debouncedContent.indexOf('>', i + 1);
+				if (closeAngle !== -1) {
+					const closeParen = debouncedContent.indexOf(')', closeAngle);
+					if (closeParen !== -1) {
+						// Extract the path including the angle brackets
+						path = debouncedContent.slice(i, closeAngle + 1);
+						output.push(`![${altText}](${path})`);
+						lastIndex = closeParen + 1;
+						// Update regex lastIndex to continue after this match
+						regex.lastIndex = closeParen + 1;
+						continue;
+					}
+				}
+			}
+
+			// Parse the path, tracking parenthesis depth
+			let parenDepth = 0;
+			for (; i < debouncedContent.length; i++) {
+				const char = debouncedContent[i];
+				if (char === '(') {
+					parenDepth++;
+					path += char;
+				} else if (char === ')') {
+					// If we haven't entered any nested parens, this closes the image syntax
+					if (parenDepth === 0) {
+						break;
+					}
+					// Otherwise, this closes a nested paren in the path
+					parenDepth--;
+					path += char;
+				} else if (char === '\n' || char === '\r') {
+					// Line break before closing paren - malformed
+					break;
+				} else {
+					path += char;
+				}
+			}
+
+			// Check if path needs escaping
+			const needsEscaping = /[\s()]/.test(path);
+			const isExternal = path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:');
+
+			if (needsEscaping && !isExternal && !isInAngleBrackets) {
+				output.push(`![${altText}](<${path}>)`);
+			} else {
+				output.push(`![${altText}](${path})`);
+			}
+
+			lastIndex = i + 1; // +1 to skip the closing )
+		}
+
+		// Add remaining content
+		output.push(debouncedContent.slice(lastIndex));
+
+		return output.join('');
+	}, [debouncedContent, extension]);
+
 	// Cleanup Blob URLs when component unmounts or FS changes
 	useEffect(() => {
 		return () => cleanupBlobCache();
@@ -81,12 +179,19 @@ export function PreviewPanel({
 				<ReactMarkdown
 					remarkPlugins={[remarkGfm, remarkBreaks]}
 					urlTransform={(url) => {
-						// Allow all URLs as-is (resolution happens in img component)
+						// Decode URL-encoded paths (markdown parsers encode spaces, parentheses, etc.)
+						try {
+							if (/%[0-9A-Fa-f]{2}/.test(url)) {
+								return decodeURIComponent(url);
+							}
+						} catch {
+							// If decoding fails, return original
+						}
 						return url;
 					}}
 					components={components}
 				>
-					{debouncedContent}
+					{processedContent}
 				</ReactMarkdown>
 			) : (
 				<pre className="whitespace-pre-wrap text-slate-800 dark:text-slate-200">

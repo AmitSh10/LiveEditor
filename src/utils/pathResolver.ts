@@ -60,10 +60,10 @@ function getPathSegments(root: FSNode, fileId: string): string[] {
 }
 
 /**
- * Resolve a relative path from a source file to find the target file
+ * Resolve a relative or absolute path from a source file to find the target file
  * @param root - The root of the file system
  * @param sourceFileId - The ID of the file containing the reference
- * @param relativePath - The relative path (e.g., "./image.png", "../css/style.css")
+ * @param relativePath - The relative path (e.g., "./image.png", "../css/style.css") or absolute path (e.g., "/folder/image.png")
  * @returns The target file node, or null if not found
  */
 export function resolveRelativePath(
@@ -71,6 +71,40 @@ export function resolveRelativePath(
 	sourceFileId: string,
 	relativePath: string
 ): FileNode | null {
+	// Parse the path
+	const pathParts = relativePath.split('/').filter(p => p && p !== '.');
+
+	// Check if it's an absolute path from root (starts with /)
+	if (relativePath.startsWith('/')) {
+		// Absolute path - start from root
+		if (root.type !== 'folder') {
+			return null;
+		}
+
+		let currentFolder: FolderNode = root;
+
+		// Navigate through the path from root
+		for (let i = 0; i < pathParts.length; i++) {
+			const part = pathParts[i];
+
+			if (i === pathParts.length - 1) {
+				// Last part - this is the file we're looking for
+				const file = findFileInFolder(currentFolder, part);
+				return file;
+			} else {
+				// Navigate into a subfolder
+				const folder = findFolderInFolder(currentFolder, part);
+				if (!folder) {
+					return null;
+				}
+				currentFolder = folder;
+			}
+		}
+
+		return null;
+	}
+
+	// Relative path - resolve from source file's directory
 	// Find the source file
 	const sourceFile = findNodeById(root, sourceFileId);
 	if (!sourceFile || sourceFile.type !== 'file') {
@@ -82,9 +116,6 @@ export function resolveRelativePath(
 	if (!sourceParent) {
 		return null;
 	}
-
-	// Parse the relative path
-	const pathParts = relativePath.split('/').filter(p => p && p !== '.');
 
 	// Start from the source file's parent directory
 	let currentFolder: FolderNode = sourceParent;

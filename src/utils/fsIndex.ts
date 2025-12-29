@@ -29,7 +29,9 @@ export function buildFsIndex(root: FSNode): FsIndex {
 			const absPath = currentPath + '/' + fileName;
 
 			idToAbsPath.set(node.id, absPath);
+			// Store both raw and canonical (URL-encoded) paths for robust lookup
 			absPathToFileId.set(absPath, node.id);
+			absPathToFileId.set(canonicalUrlPath(absPath), node.id);
 		} else if (node.type === 'folder') {
 			// For folders, just recurse
 			const folderPath = currentPath + '/' + node.name;
@@ -69,7 +71,38 @@ function normalizePath(path: string): string {
 }
 
 /**
- * Resolve a relative path from a source file
+ * Decode URL-encoded path (handles %20, %28, %29, etc.)
+ */
+function decodePathSafe(path: string): string {
+	try {
+		// Only decode if it looks URL-encoded
+		if (/%[0-9A-Fa-f]{2}/.test(path)) {
+			return decodeURIComponent(path);
+		}
+		return path;
+	} catch {
+		// If decoding fails, return original
+		return path;
+	}
+}
+
+/**
+ * Create a canonical URL-encoded version of a path
+ * Uses encodeURI (not encodeURIComponent) so / stays /
+ */
+function canonicalUrlPath(path: string): string {
+	try {
+		// First decode any existing encoding (idempotent)
+		const decoded = decodePathSafe(path);
+		// Re-encode in a normalized way
+		return encodeURI(decoded);
+	} catch {
+		return path;
+	}
+}
+
+/**
+ * Resolve a relative or absolute path from a source file
  * Uses O(1) lookups instead of tree traversal
  */
 export function resolveRelativePathFast(
@@ -86,24 +119,41 @@ export function resolveRelativePathFast(
 		return null;
 	}
 
-	// Get the source file's absolute path
-	const sourceAbsPath = index.idToAbsPath.get(sourceFileId);
-	if (!sourceAbsPath) {
-		return null;
+	// Decode URL-encoded characters (markdown parsers often encode paths)
+	const decodedPath = decodePathSafe(relativePath);
+
+	let normalizedPath: string;
+
+	// Check if it's an absolute path from root (starts with /)
+	if (decodedPath.startsWith('/')) {
+		// Absolute path - use directly
+		normalizedPath = normalizePath(decodedPath);
+	} else {
+		// Relative path - resolve from source file directory
+		const sourceAbsPath = index.idToAbsPath.get(sourceFileId);
+		if (!sourceAbsPath) {
+			return null;
+		}
+
+		// Get the directory of the source file
+		const lastSlash = sourceAbsPath.lastIndexOf('/');
+		const sourceDir = lastSlash > 0 ? sourceAbsPath.slice(0, lastSlash) : '';
+
+		// Combine source directory with relative path
+		const combinedPath = sourceDir + '/' + decodedPath;
+
+		// Normalize the path (resolve .. and .)
+		normalizedPath = normalizePath(combinedPath);
 	}
 
-	// Get the directory of the source file
-	const lastSlash = sourceAbsPath.lastIndexOf('/');
-	const sourceDir = lastSlash > 0 ? sourceAbsPath.slice(0, lastSlash) : '';
+	// Try lookup with both raw and canonical (URL-encoded) paths
+	const canonicalPath = canonicalUrlPath(normalizedPath);
 
-	// Combine source directory with relative path
-	const combinedPath = sourceDir + '/' + relativePath;
+	const targetFileId =
+		index.absPathToFileId.get(normalizedPath) ??
+		index.absPathToFileId.get(canonicalPath) ??
+		null;
 
-	// Normalize the path (resolve .. and .)
-	const normalizedPath = normalizePath(combinedPath);
-
-	// Look up the file ID
-	const targetFileId = index.absPathToFileId.get(normalizedPath);
 	if (!targetFileId) {
 		return null;
 	}
