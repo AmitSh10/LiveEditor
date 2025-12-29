@@ -5,15 +5,15 @@ import {
 	selectAllExtensions,
 	selectGlobalSearchResults,
 	selectSearchState,
-} from '../fs/fsSelectors';
+} from '../workspace/workspaceSelectors';
 import {
 	setExtFilters,
 	setMatchCase,
 	setSearchMode,
 	setSearchQuery,
+	openFile,
 	type SearchMode,
-} from '../fs/fsSlice';
-import { openFile } from '../fs/fsSlice';
+} from '../workspace/workspaceSlice';
 import { focusActiveEditor, revealInActiveEditor } from '../editor/EditorPanel';
 
 function normalizeExtLabel(ext: string) {

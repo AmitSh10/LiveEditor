@@ -5,8 +5,8 @@ import type { editor as MonacoEditor } from 'monaco-editor';
 import type * as Monaco from 'monaco-editor';
 
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { selectActiveFile } from '../fs/fsSelectors';
-import { updateFileContent, toggleHexView } from '../fs/fsSlice';
+import { selectActiveFile, selectHexViewEnabled, selectRoot } from '../workspace/workspaceSelectors';
+import { updateFileContent, toggleHexView } from '../workspace/workspaceSlice';
 import { toolbarTemplates } from '../templates/toolbarTemplates';
 import { parseSnippet } from '../templates/snippetEngine';
 import { PreviewPanel } from '../preview/PreviewPanel';
@@ -55,8 +55,8 @@ export function revealInActiveEditor(line: number, column: number) {
 export function EditorPanel() {
 	const dispatch = useAppDispatch();
 	const file = useAppSelector(selectActiveFile);
-	const hexViewEnabled = useAppSelector((s) => s.fs.hexViewEnabled);
-	const root = useAppSelector((s) => s.fs.root);
+	const hexViewEnabled = useAppSelector(selectHexViewEnabled);
+	const root = useAppSelector(selectRoot);
 	const theme = useAppSelector((s) => s.theme.theme);
 
 	const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
@@ -74,6 +74,12 @@ export function EditorPanel() {
 
 	const snippetSessionRef = useRef<SnippetSession | null>(null);
 
+	// Debounced HTML content for preview (reduces flashing)
+	// MUST be before any conditional returns (Rules of Hooks)
+	const [debouncedHtmlContent, setDebouncedHtmlContent] = useState(
+		file?.content ?? ''
+	);
+
 	// Cleanup bridge on unmount
 	useEffect(() => {
 		return () => {
@@ -84,33 +90,12 @@ export function EditorPanel() {
 		};
 	}, []);
 
-	if (!file) return <div className="text-slate-500 dark:text-slate-400">Select a file…</div>;
-
-	// Check if file is an image
-	const imageExtensions = new Set([
-		'png',
-		'jpg',
-		'jpeg',
-		'gif',
-		'svg',
-		'webp',
-		'bmp',
-		'ico',
-	]);
-	const isImage = imageExtensions.has(file.extension.toLowerCase());
-
-	const isMarkdown = file.extension === 'md';
-	const isHtml = file.extension === 'html' || file.extension === 'htm';
-	const buttons = toolbarTemplates[file.extension] ?? [];
-
-	// Debounced HTML content for preview (reduces flashing)
-	const [debouncedHtmlContent, setDebouncedHtmlContent] = useState(
-		file.content
-	);
-
 	// Debounce HTML preview updates to reduce flashing
 	useEffect(() => {
-		if (!isHtml) return;
+		if (!file) return;
+
+		const isHtml = file.extension === 'html' || file.extension === 'htm';
+		if (!isHtml || !root) return;
 
 		const timer = setTimeout(() => {
 			// Resolve file references in HTML
@@ -123,10 +108,12 @@ export function EditorPanel() {
 		}, 300); // 300ms delay
 
 		return () => clearTimeout(timer);
-	}, [file.content, isHtml, root, file.id]);
+	}, [file, root]);
 
 	// When active file changes, apply any pending focus/reveal for THAT file.
 	useEffect(() => {
+		if (!file) return;
+
 		const editor = editorRef.current;
 		const model = editor?.getModel();
 		if (!editor || !model) return;
@@ -164,7 +151,26 @@ export function EditorPanel() {
 				}
 			}, 0);
 		}
-	}, [file.id]);
+	}, [file]);
+
+	if (!file) return <div className="text-slate-500 dark:text-slate-400">Select a file…</div>;
+
+	// Check if file is an image
+	const imageExtensions = new Set([
+		'png',
+		'jpg',
+		'jpeg',
+		'gif',
+		'svg',
+		'webp',
+		'bmp',
+		'ico',
+	]);
+	const isImage = imageExtensions.has(file.extension.toLowerCase());
+
+	const isMarkdown = file.extension === 'md';
+	const isHtml = file.extension === 'html' || file.extension === 'htm';
+	const buttons = toolbarTemplates[file.extension] ?? [];
 
 	const clearSnippetSession = () => {
 		const editor = editorRef.current;

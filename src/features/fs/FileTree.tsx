@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import type { FSNode } from '../../types/fs';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { setActiveFile } from './fsSlice';
+import { setActiveFile } from '../workspace/workspaceSlice';
+import { selectRoot, selectActiveFileId } from '../workspace/workspaceSelectors';
 import { FileTreeNode } from './FileTreeNode';
 import { useExpandedFolders } from './useExpandedFolders';
 import { useContextMenu } from './useContextMenu';
@@ -43,9 +44,8 @@ function buildNodePath(root: FSNode, targetId: string): string | null {
 
 export function FileTree() {
 	const dispatch = useAppDispatch();
-	const root = useAppSelector((s) => s.fs.root);
-	const activeId = useAppSelector((s) => s.fs.activeFileId);
-	const rootId = root.id;
+	const root = useAppSelector(selectRoot);
+	const activeId = useAppSelector(selectActiveFileId);
 
 	// Expanded folders (persisted)
 	const { expanded, toggleExpanded, ensureExpanded } = useExpandedFolders();
@@ -53,7 +53,8 @@ export function FileTree() {
 	// Context menu
 	const { menu, setMenu, menuRef, openMenuAt, closeMenu } = useContextMenu();
 
-	// Inline rename/create/delete rules
+	// Inline rename/create/delete rules - pass null root temporarily if not available
+	const rootId = root?.id ?? '';
 	const {
 		editing,
 		setEditing,
@@ -64,7 +65,7 @@ export function FileTree() {
 		onKeyForInline,
 		onBlurSmart,
 	} = useInlineRename({
-		root,
+		root: root!,
 		rootId,
 		dispatch,
 		ensureExpanded: (folderId: string) => ensureExpanded(folderId, rootId),
@@ -76,9 +77,14 @@ export function FileTree() {
 	};
 
 	const menuNode = useMemo(() => {
-		if (!menu) return null;
+		if (!menu || !root) return null;
 		return findNode(root, menu.nodeId);
 	}, [menu, root]);
+
+	// Early return AFTER all hooks
+	if (!root) {
+		return <div className="p-4 text-sm text-gray-500">No active project</div>;
+	}
 
 	const menuIsRoot = menuNode?.id === rootId;
 

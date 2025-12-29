@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { FSNode, FolderNode, FileNode } from '../../types/fs';
-import { createFile, createFolder, renameNode, deleteNode } from './fsSlice';
+import { createFile, createFolder, renameNode, deleteNode } from '../workspace/workspaceSlice';
 
 type EditMode = 'rename' | 'newFile' | 'newFolder';
 

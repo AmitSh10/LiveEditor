@@ -3,7 +3,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { useMemo, useEffect, memo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import type { RootState } from '../../app/store';
+import { selectRoot, selectActiveFileId } from '../workspace/workspaceSelectors';
 import { buildFsIndex, resolveImgSrc, cleanupBlobCache, type FsIndex } from '../../utils/fsIndex';
 
 // Memoized img component to prevent re-renders
@@ -54,8 +54,8 @@ export function PreviewPanel({
 		: content;
 
 	// Use props if provided, otherwise get from Redux
-	const rootFromRedux = useSelector((state: RootState) => state.fs.root);
-	const activeFileIdFromRedux = useSelector((state: RootState) => state.fs.activeFileId);
+	const rootFromRedux = useSelector(selectRoot);
+	const activeFileIdFromRedux = useSelector(selectActiveFileId);
 
 	const root = rootProp ?? rootFromRedux;
 	const activeFileId = fileIdProp ?? activeFileIdFromRedux;

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { selectActiveFileId, selectOpenFiles } from '../fs/fsSelectors';
-import { closeFile, setActiveFile, togglePinFile } from '../fs/fsSlice';
+import { selectActiveFileId, selectOpenFiles, selectPinnedFileIds, selectRoot } from '../workspace/workspaceSelectors';
+import { closeFile, setActiveFile, togglePinFile } from '../workspace/workspaceSlice';
 import { getFileIcon } from '../../utils/fileIcons';
 import type { FSNode } from '../../types/fs';
 
@@ -38,8 +38,8 @@ export function TabsBar() {
 	const dispatch = useAppDispatch();
 	const activeId = useAppSelector(selectActiveFileId);
 	const openFiles = useAppSelector(selectOpenFiles);
-	const pinnedFileIds = useAppSelector((s) => s.fs.pinnedFileIds);
-	const root = useAppSelector((s) => s.fs.root);
+	const pinnedFileIds = useAppSelector(selectPinnedFileIds);
+	const root = useAppSelector(selectRoot);
 	const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
 	const menuRef = useRef<HTMLDivElement>(null);
 
@@ -90,6 +90,8 @@ export function TabsBar() {
 	};
 
 	const handleCopyPath = (fileId: string, relative: boolean) => {
+		if (!root) return;
+
 		const targetPath = buildFilePath(root, fileId);
 		if (!targetPath) return;
 

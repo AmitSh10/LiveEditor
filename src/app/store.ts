@@ -1,22 +1,17 @@
 import { configureStore, type Middleware } from '@reduxjs/toolkit';
-import fsReducer from '../features/fs/fsSlice';
+import workspaceReducer from '../features/workspace/workspaceSlice';
 import themeReducer from '../features/theme/themeSlice';
-import { saveFS } from '../features/fs/fsPersistence';
+import { saveWorkspace } from '../features/workspace/workspacePersistence';
 
 const persistMiddleware: Middleware = (api) => (next) => (action) => {
 	const result = next(action);
 
-	// Don't persist on search-related or theme actions (they're transient or handled separately)
+	// Don't persist on theme actions (handled separately)
 	const actionType = typeof action === 'object' && action !== null ? (action as any).type : '';
-	const shouldSkipPersist = actionType && (
-		actionType.startsWith('fs/setSearch') ||
-		actionType.startsWith('fs/setMatch') ||
-		actionType.startsWith('fs/setExt') ||
-		actionType.startsWith('theme/')
-	);
+	const shouldSkipPersist = actionType && actionType.startsWith('theme/');
 
 	if (!shouldSkipPersist) {
-		saveFS(api.getState().fs);
+		saveWorkspace(api.getState().workspace);
 	}
 
 	return result;
@@ -24,7 +19,7 @@ const persistMiddleware: Middleware = (api) => (next) => (action) => {
 
 export const store = configureStore({
 	reducer: {
-		fs: fsReducer,
+		workspace: workspaceReducer,
 		theme: themeReducer,
 	},
 	middleware: (getDefault) => getDefault().concat(persistMiddleware),

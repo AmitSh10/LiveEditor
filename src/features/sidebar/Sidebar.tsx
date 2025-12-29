@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FileTree } from '../fs/FileTree';
 import { GlobalSearchPanel } from '../search/GlobalSearchPanel';
 import { useAppDispatch } from '../../app/hooks';
-import { importNodes } from '../fs/fsSlice';
+import { importNodes } from '../workspace/workspaceSlice';
 import { processDroppedFiles } from '../fs/importFiles';
 
 type SidebarTab = 'files' | 'search';

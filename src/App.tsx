@@ -5,7 +5,8 @@ import { Sidebar } from './features/sidebar/Sidebar';
 import { EditorPanel } from './features/editor/EditorPanel';
 import { exportAsZip } from './features/fs/exportZip';
 import { importFolder as importFolderFromFiles } from './features/fs/importFolder';
-import { importFolder } from './features/fs/fsSlice';
+import { importFolder } from './features/workspace/workspaceSlice';
+import { selectRoot } from './features/workspace/workspaceSelectors';
 import { toggleTheme } from './features/theme/themeSlice';
 
 const MIN_SIDEBAR_WIDTH = 200;
@@ -14,7 +15,7 @@ const DEFAULT_SIDEBAR_WIDTH = 280;
 
 export default function App() {
 	const dispatch = useAppDispatch();
-	const root = useAppSelector((s) => s.fs.root);
+	const root = useAppSelector(selectRoot);
 	const theme = useAppSelector((s) => s.theme.theme);
 	const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
 	const [isResizing, setIsResizing] = useState(false);
@@ -130,7 +131,7 @@ export default function App() {
 					</button>
 					<button
 						className="flex-1 text-sm px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
-						onClick={() => exportAsZip(root)}
+						onClick={() => root && exportAsZip(root)}
 						title="Download as ZIP file"
 					>
 						Export ZIP
