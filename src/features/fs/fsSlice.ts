@@ -512,6 +512,66 @@ const fsSlice = createSlice({
 				name: finalName,
 			});
 		},
+
+		// Import multiple files and folders into the root
+		importNodes(
+			state,
+			action: PayloadAction<{ nodes: (FSNode | FolderNode)[] }>
+		) {
+			const { nodes } = action.payload;
+			if (!Array.isArray(nodes)) return;
+
+			for (const node of nodes) {
+				if (!node || !node.type) continue;
+
+				if (node.type === 'folder') {
+					// Reuse importFolder logic
+					const existingNames = state.root.children
+						.filter((c: AnyNode) => c?.type === 'folder')
+						.map((c: AnyNode) => c.name);
+
+					let finalName = node.name;
+
+					if (existingNames.includes(finalName)) {
+						let counter = 1;
+						while (existingNames.includes(`${node.name} (${counter})`)) {
+							counter++;
+						}
+						finalName = `${node.name} (${counter})`;
+					}
+
+					state.root.children.push({
+						...node,
+						name: finalName,
+					});
+				} else if (node.type === 'file') {
+					// Check for duplicate file names
+					const parsed = { name: node.name, extension: node.extension };
+
+					let finalName = node.name;
+					let finalExt = node.extension;
+
+					if (nameExistsInFolder(state.root, 'file', parsed)) {
+						let counter = 1;
+						while (
+							nameExistsInFolder(state.root, 'file', {
+								name: `${node.name} (${counter})`,
+								extension: node.extension,
+							})
+						) {
+							counter++;
+						}
+						finalName = `${node.name} (${counter})`;
+					}
+
+					state.root.children.push({
+						...node,
+						name: finalName,
+						extension: finalExt,
+					});
+				}
+			}
+		},
 	},
 });
 
@@ -537,6 +597,7 @@ export const {
 	renameNode,
 	deleteNode,
 	importFolder,
+	importNodes,
 } = fsSlice.actions;
 
 export default fsSlice.reducer;
