@@ -3,6 +3,7 @@ import { useAppSelector, useAppDispatch } from './app/hooks';
 
 import { Sidebar } from './features/sidebar/Sidebar';
 import { EditorPanel } from './features/editor/EditorPanel';
+import { ProjectSwitcher } from './features/workspace/ProjectSwitcher';
 import { exportAsZip } from './features/fs/exportZip';
 import { importFolder as importFolderFromFiles } from './features/fs/importFolder';
 import { importFolder } from './features/workspace/workspaceSlice';
@@ -192,13 +193,16 @@ export default function App() {
 			<main className="flex-1 p-3 h-screen flex flex-col overflow-hidden">
 				<div className="flex items-center justify-between mb-2">
 					<div className="font-semibold">Editor</div>
-					<button
-						onClick={() => dispatch(toggleTheme())}
-						className="px-3 py-1 text-sm bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-						title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-					>
-						{theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-					</button>
+					<div className="flex items-center gap-2">
+						<ProjectSwitcher />
+						<button
+							onClick={() => dispatch(toggleTheme())}
+							className="px-3 py-1 text-sm bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+							title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+						>
+							{theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+						</button>
+					</div>
 				</div>
 				<div className="flex-1 min-h-0">
 					<EditorPanel />

@@ -30,34 +30,35 @@ function findParentFolder(root: FSNode, nodeId: string): FolderNode | null {
 
 /**
  * Get the full path segments of a file from root to the file
+ * (Currently unused but kept for future reference)
  */
-function getPathSegments(root: FSNode, fileId: string): string[] {
-	const segments: string[] = [];
+// function _getPathSegments(root: FSNode, fileId: string): string[] {
+// 	const segments: string[] = [];
 
-	function traverse(node: FSNode, currentPath: string[]): boolean {
-		if (node.id === fileId) {
-			segments.push(...currentPath);
-			return true;
-		}
+// 	function traverse(node: FSNode, currentPath: string[]): boolean {
+// 		if (node.id === fileId) {
+// 			segments.push(...currentPath);
+// 			return true;
+// 		}
 
-		if (node.type === 'folder') {
-			for (const child of node.children) {
-				const childName = child.type === 'file'
-					? `${child.name}${child.extension ? `.${child.extension}` : ''}`
-					: child.name;
+// 		if (node.type === 'folder') {
+// 			for (const child of node.children) {
+// 				const childName = child.type === 'file'
+// 					? `${child.name}${child.extension ? `.${child.extension}` : ''}`
+// 					: child.name;
 
-				if (traverse(child, [...currentPath, childName])) {
-					return true;
-				}
-			}
-		}
+// 				if (traverse(child, [...currentPath, childName])) {
+// 					return true;
+// 				}
+// 			}
+// 		}
 
-		return false;
-	}
+// 		return false;
+// 	}
 
-	traverse(root, []);
-	return segments;
-}
+// 	traverse(root, []);
+// 	return segments;
+// }
 
 /**
  * Resolve a relative or absolute path from a source file to find the target file
@@ -252,7 +253,7 @@ export function resolveHtmlReferences(
 	// Resolve CSS in <style> tags
 	result = result.replace(
 		/<style([^>]*)>([\s\S]*?)<\/style>/gi,
-		(match, attrs, css) => {
+		(_match, attrs, css) => {
 			const resolvedCss = resolveCssReferences(css, root, sourceFileId);
 			return `<style${attrs}>${resolvedCss}</style>`;
 		}
@@ -292,7 +293,7 @@ export function resolveCssReferences(
 	// Replace @import statements
 	result = result.replace(
 		/@import\s+(['"])([^'"]+)\1\s*;?/gi,
-		(match, quote, url) => {
+		(match, _quote, url) => {
 			if (url.startsWith('http://') || url.startsWith('https://')) {
 				return match; // External URL, leave as is
 			}
