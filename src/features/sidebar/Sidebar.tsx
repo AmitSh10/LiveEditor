@@ -1,20 +1,28 @@
 import { useState } from 'react';
 import { FileTree } from '../fs/FileTree';
 import { GlobalSearchPanel } from '../search/GlobalSearchPanel';
-import { useAppDispatch } from '../../app/hooks';
+import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { importNodes } from '../workspace/workspaceSlice';
 import { processDroppedFiles } from '../fs/importFiles';
+import { selectRoot as selectFSRoot } from '../workspace/filesystemWorkspaceSelectors';
 
 type SidebarTab = 'files' | 'search';
+
+// Check if we're in filesystem mode (should match App.tsx)
+const USE_FILESYSTEM_MODE = true;
 
 export function Sidebar() {
 	const [tab, setTab] = useState<SidebarTab>('files');
 	const [isDragging, setIsDragging] = useState(false);
 	const dispatch = useAppDispatch();
 
-	// Drag & drop handlers (only active when files tab is open)
+	// In filesystem mode, disable drag & drop when no project is open
+	const fsRoot = useAppSelector(selectFSRoot);
+	const hasProject = USE_FILESYSTEM_MODE ? fsRoot !== null : true;
+
+	// Drag & drop handlers (only active when files tab is open and project exists)
 	const handleDragOver = (e: React.DragEvent) => {
-		if (tab !== 'files') return;
+		if (tab !== 'files' || !hasProject) return;
 		e.preventDefault();
 		e.stopPropagation();
 		e.dataTransfer.dropEffect = 'copy';
@@ -25,14 +33,14 @@ export function Sidebar() {
 	};
 
 	const handleDragEnter = (e: React.DragEvent) => {
-		if (tab !== 'files') return;
+		if (tab !== 'files' || !hasProject) return;
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(true);
 	};
 
 	const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-		if (tab !== 'files') return;
+		if (tab !== 'files' || !hasProject) return;
 		e.preventDefault();
 		e.stopPropagation();
 
@@ -43,7 +51,7 @@ export function Sidebar() {
 	};
 
 	const handleDrop = async (e: React.DragEvent) => {
-		if (tab !== 'files') return;
+		if (tab !== 'files' || !hasProject) return;
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(false);
@@ -105,7 +113,7 @@ export function Sidebar() {
 				onDrop={handleDrop}
 			>
 				{/* Drag overlay - appears above content without taking space */}
-				{tab === 'files' && isDragging && (
+				{tab === 'files' && isDragging && hasProject && (
 					<div className="absolute inset-0 z-50 bg-blue-50/25 dark:bg-blue-900/15 border-2 border-dashed border-blue-500 dark:border-blue-400 rounded-md pointer-events-none">
 						<div className="absolute bottom-4 left-0 right-0 flex justify-center">
 							<div className="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium">

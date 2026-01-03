@@ -1,6 +1,6 @@
 # Live Editor
 
-A fully-featured, browser-based code editor with an in-memory file system. Built with React, TypeScript, and Monaco Editor (VSCode's editor core).
+A fully-featured, browser-based code editor that works with **real files on your disk** using the File System Access API. Built with React, TypeScript, and Monaco Editor (VSCode's editor core).
 
 ![Live Editor](https://img.shields.io/badge/React-19.2-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue) ![Monaco Editor](https://img.shields.io/badge/Monaco-Editor-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -8,16 +8,17 @@ A fully-featured, browser-based code editor with an in-memory file system. Built
 
 ## 🚀 Main Idea
 
-**Live Editor** is a complete code editing environment that runs entirely in your browser. No server required, no installations needed—just open it and start coding. Perfect for:
+**Live Editor** is a complete code editing environment that runs entirely in your browser while working with **real files on your disk**. No server required, no installations needed—just open it and start coding. Perfect for:
 
-- 📝 Quick prototyping and experimentation
+- 📝 Editing local files directly from your disk
+- 💻 Working on real projects with instant file system sync
 - 📚 Documentation with live Markdown preview
 - 🎓 Learning to code with syntax highlighting for 70+ languages
-- 💼 Sharing code snippets and projects as ZIP files
 - 🌐 Building static websites with HTML/CSS/JS preview
 - 🔍 Searching across multiple files in your project
+- 🚀 Drag-and-drop files and folders to add them to your project
 
-All your work is automatically saved to your browser's LocalStorage, so you never lose your progress.
+Uses the **File System Access API** to read and write files directly, with per-project settings saved to your browser's LocalStorage.
 
 ---
 
@@ -30,13 +31,14 @@ All your work is automatically saved to your browser's LocalStorage, so you neve
 - **Smart indentation** and auto-closing brackets
 - **Snippet system** with tab-stop navigation (170+ built-in templates)
 
-### 📁 **Complete File System**
-- **Create, rename, delete** files and folders
-- **Drag-free organization** with context menus
-- **Import folders** from your computer
+### 📁 **Real File System Integration**
+- **Works with real files** on your disk using File System Access API
+- **Auto-save to disk** whenever you edit a file
+- **Drag-and-drop** files and folders to add them to your project
+- **Multiple projects** - switch between different folders easily
 - **Export projects** as ZIP files
 - **Pin important files** in tabs
-- **Persistent storage** via LocalStorage
+- **Persistent project settings** via LocalStorage and IndexedDB
 
 ### 🔍 **Powerful Search**
 - **Global search** across all files
@@ -51,8 +53,10 @@ All your work is automatically saved to your browser's LocalStorage, so you neve
   - Tables, task lists, strikethrough, autolinks
   - Image support with relative path resolution
   - Auto-encoding for paths with spaces/parentheses
+  - **On-demand image loading** - images load from disk even after page refresh
 - **HTML preview** with sandboxed iframe
-  - Auto-inlines CSS and JavaScript
+  - Auto-inlines CSS and JavaScript from disk
+  - **On-demand resource loading** - CSS/JS files load automatically even after refresh
   - Resolves relative references
   - Debounced updates (300ms) to reduce flashing
 
@@ -121,14 +125,21 @@ npm run preview
 
 ## 📖 Usage
 
-### Creating Files and Folders
-1. Right-click in the file tree
-2. Select "New File" or "New Folder"
-3. Type the name and press Enter
+### Creating/Opening a Project
+1. Click "Create New Project" or "Open Project" in the file tree
+2. Select a folder from your computer
+3. The app requests permission to read/write files in that folder
+4. Your project appears in the file tree
+
+### Adding Files to Your Project
+- **Drag-and-drop** files or folders from your file explorer into the file tree
+- Files are copied into your project folder
+- Changes are saved directly to disk
 
 ### Opening Files
 - Click on a file in the file tree
 - Files open in tabs at the top of the editor
+- Edits are auto-saved to disk
 
 ### Searching
 1. Click the 🔎 (Search) tab in the sidebar
@@ -148,10 +159,10 @@ npm run preview
 4. Press **Shift+Tab** to go back
 5. Press **Escape** to exit snippet mode
 
-### Importing a Folder
-1. Click "Import Folder" in the top-right
-2. Select a folder from your computer
-3. All text files and images are imported
+### Switching Between Projects
+1. Click the project dropdown in the sidebar
+2. Select a different project or create/open a new one
+3. Your project settings (open files, pinned tabs) are preserved per-project
 
 ### Exporting Your Project
 1. Click "Export ZIP" in the top-right
@@ -289,12 +300,19 @@ Share projects as ZIP files or demonstrate code concepts live.
 ## 🔒 Privacy & Storage
 
 - **100% client-side**: All code runs in your browser
-- **No server uploads**: Your code never leaves your computer
-- **LocalStorage**: Files saved automatically to browser storage
-- **Storage limit**: ~5-10MB (varies by browser)
-- **Clear data**: Clear browser data to reset
+- **Real file system**: Works with actual files on your disk using File System Access API
+- **No server uploads**: Your files never leave your computer
+- **Auto-save**: Changes are saved directly to your disk
+- **LocalStorage**: Project settings and preferences saved to browser
+- **IndexedDB**: Project directory handles stored for quick access
+- **No storage limit**: Works with projects of any size (files stay on your disk)
 
-For larger projects, consider migrating to IndexedDB (see [FEATURE_IDEAS.md](FEATURE_IDEAS.md)).
+### Browser Compatibility
+Requires a browser that supports the File System Access API:
+- ✅ Chrome/Edge 86+
+- ✅ Opera 72+
+- ❌ Firefox (not yet supported)
+- ❌ Safari (not yet supported)
 
 ---
 
@@ -337,11 +355,10 @@ See [FEATURE_IDEAS.md](FEATURE_IDEAS.md) for a comprehensive list of planned fea
 
 ## 🐛 Known Limitations
 
-1. **Storage**: Limited to ~5-10MB in LocalStorage
-2. **Performance**: Best with < 1000 files and < 50MB total size
-3. **Collaboration**: Single-user only (no real-time collaboration)
-4. **Formatting**: Only supports web languages (no Python, Java, etc. formatting)
-5. **Import**: Browser must support `webkitdirectory` (Chrome, Edge, Safari)
+1. **Browser Support**: Requires File System Access API (Chrome/Edge/Opera only)
+2. **Collaboration**: Single-user only (no real-time collaboration)
+3. **Formatting**: Only supports web languages (no Python, Java, etc. formatting)
+4. **Permissions**: Must grant file system access for each project
 
 ---
 
@@ -375,4 +392,18 @@ If you find this project helpful, please consider giving it a ⭐ on GitHub!
 
 **Built with ❤️ using React, TypeScript, and Monaco Editor**
 
-*Last Updated: 2025-12-29*
+---
+
+## 🎉 Recent Updates
+
+### January 2026 - Filesystem Mode
+- ✅ **Real file system integration** - Works with actual files on your disk
+- ✅ **Auto-save to disk** - Changes sync automatically
+- ✅ **Drag-and-drop support** - Add files/folders to your project
+- ✅ **Multiple projects** - Switch between different folders
+- ✅ **Fixed path resolution** - Images and CSS/JS now load correctly after page refresh
+- ✅ **Fixed drag-and-drop UI** - Drop highlight clears properly after dropping files
+
+---
+
+*Last Updated: 2026-01-03*

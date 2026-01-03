@@ -7,6 +7,20 @@ import type * as Monaco from 'monaco-editor';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { selectActiveFile, selectHexViewEnabled, selectRoot } from '../workspace/workspaceSelectors';
 import { updateFileContent, toggleHexView } from '../workspace/workspaceSlice';
+import {
+	selectActiveFile as selectFSActiveFile,
+	selectHexViewEnabled as selectFSHexViewEnabled,
+	selectRoot as selectFSRoot,
+} from '../workspace/filesystemWorkspaceSelectors';
+import {
+	toggleHexView as toggleFSHexView,
+	fileContentUpdated,
+} from '../workspace/filesystemWorkspaceSlice';
+import { selectActiveProjectId } from '../workspace/filesystemWorkspaceSelectors';
+import { saveFileContent } from '../workspace/filesystemWorkspaceSlice';
+
+// Filesystem mode flag
+const USE_FILESYSTEM_MODE = true;
 import { toolbarTemplates } from '../templates/toolbarTemplates';
 import { parseSnippet } from '../templates/snippetEngine';
 import { PreviewPanel } from '../preview/PreviewPanel';
@@ -15,6 +29,40 @@ import { HexViewer } from './HexViewer';
 import { resolveHtmlReferences } from '../../utils/pathResolver';
 import { getLanguageFromExtension } from '../../utils/languageMap';
 import { formatCode } from '../../utils/formatter';
+import type { FSNode } from '../../types/fs';
+
+// ---------------------
+// Helper to get file path
+// ---------------------
+function getNodePath(root: FSNode, nodeId: string, rootId: string): string | null {
+	function traverse(node: FSNode, currentPath: string[]): string | null {
+		if (node.id === nodeId) {
+			// If this IS the root node, return empty string (represents project directory)
+			if (node.id === rootId) {
+				return '';
+			}
+
+			if (node.type === 'file') {
+				const fileName = node.extension ? `${node.name}.${node.extension}` : node.name;
+				return [...currentPath, fileName].join('/');
+			}
+			return [...currentPath, node.name].join('/');
+		}
+
+		if (node.type === 'folder') {
+			for (const child of node.children) {
+				// Skip adding root folder to path (it represents the project directory)
+				const newPath = node.id === rootId ? currentPath : [...currentPath, node.name];
+				const path = traverse(child, newPath);
+				if (path !== null) return path;
+			}
+		}
+
+		return null;
+	}
+
+	return traverse(root, []);
+}
 
 // ---------------------
 // Focus / Reveal bridge
@@ -54,9 +102,10 @@ export function revealInActiveEditor(line: number, column: number) {
 
 export function EditorPanel() {
 	const dispatch = useAppDispatch();
-	const file = useAppSelector(selectActiveFile);
-	const hexViewEnabled = useAppSelector(selectHexViewEnabled);
-	const root = useAppSelector(selectRoot);
+	const file = useAppSelector(USE_FILESYSTEM_MODE ? selectFSActiveFile : selectActiveFile);
+	const hexViewEnabled = useAppSelector(USE_FILESYSTEM_MODE ? selectFSHexViewEnabled : selectHexViewEnabled);
+	const root = useAppSelector(USE_FILESYSTEM_MODE ? selectFSRoot : selectRoot);
+	const projectId = useAppSelector(USE_FILESYSTEM_MODE ? selectActiveProjectId : () => null);
 	const theme = useAppSelector((s) => s.theme.theme);
 
 	const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
@@ -97,18 +146,30 @@ export function EditorPanel() {
 		const isHtml = file.extension === 'html' || file.extension === 'htm';
 		if (!isHtml || !root) return;
 
-		const timer = setTimeout(() => {
+		const timer = setTimeout(async () => {
 			// Resolve file references in HTML
-			const resolvedHtml = resolveHtmlReferences(
-				file.content,
-				root,
-				file.id
-			);
-			setDebouncedHtmlContent(resolvedHtml);
+			if (USE_FILESYSTEM_MODE && projectId) {
+				const { resolveHtmlReferencesFS } = await import('../../utils/filesystemPathResolver');
+				const resolvedHtml = await resolveHtmlReferencesFS(
+					file.content,
+					root,
+					file.id,
+					projectId,
+					dispatch
+				);
+				setDebouncedHtmlContent(resolvedHtml);
+			} else {
+				const resolvedHtml = resolveHtmlReferences(
+					file.content,
+					root,
+					file.id
+				);
+				setDebouncedHtmlContent(resolvedHtml);
+			}
 		}, 300); // 300ms delay
 
 		return () => clearTimeout(timer);
-	}, [file, root]);
+	}, [file, root, projectId]);
 
 	// When active file changes, apply any pending focus/reveal for THAT file.
 	useEffect(() => {
@@ -153,7 +214,19 @@ export function EditorPanel() {
 		}
 	}, [file]);
 
-	if (!file) return <div className="text-slate-500 dark:text-slate-400">Select a file…</div>;
+	if (!file) {
+		return (
+			<div className="h-full flex items-center justify-center">
+				<div className="text-center">
+					<div className="text-4xl text-slate-300 dark:text-slate-600 mb-4">📄</div>
+					<div className="text-slate-500 dark:text-slate-400 mb-2">No File Selected</div>
+					<div className="text-sm text-slate-400 dark:text-slate-500">
+						Select a file from the explorer to start editing
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	// Check if file is an image
 	const imageExtensions = new Set([
@@ -333,7 +406,7 @@ export function EditorPanel() {
 							? 'bg-blue-600 hover:bg-blue-700'
 							: 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
 					}`}
-					onClick={() => dispatch(toggleHexView())}
+					onClick={() => dispatch(USE_FILESYSTEM_MODE ? toggleFSHexView() : toggleHexView())}
 					type="button"
 				>
 					{isHexView ? '📝 Text View' : '🔢 Hex View'}
@@ -519,14 +592,31 @@ export function EditorPanel() {
 										editor.layout()
 									);
 								}}
-								onChange={(val) =>
-									dispatch(
-										updateFileContent({
-											id: file.id,
-											content: val ?? '',
-										})
-									)
-								}
+								onChange={(val) => {
+									const newContent = val ?? '';
+									if (USE_FILESYSTEM_MODE && projectId && root) {
+										// Update in-memory state
+										dispatch(
+											fileContentUpdated({
+												projectId,
+												fileId: file.id,
+												content: newContent,
+											})
+										);
+										// Save to disk (debounced by saveFileContent)
+										const filePath = getNodePath(root, file.id, root.id);
+										if (filePath !== null) {
+											saveFileContent(dispatch, projectId, file.id, filePath, newContent);
+										}
+									} else {
+										dispatch(
+											updateFileContent({
+												id: file.id,
+												content: newContent,
+											})
+										);
+									}
+								}}
 								options={{
 									minimap: { enabled: false },
 									fontSize: 14,

@@ -86,6 +86,8 @@ export type FileTreeNodeProps = {
 		x: number,
 		y: number
 	) => void;
+
+	onDropFiles?: (folderId: string, files: FileList) => void;
 };
 
 export const FileTreeNode = React.memo(function FileTreeNode(
@@ -103,7 +105,11 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 		onBlurSmart,
 		onSelectFile,
 		openMenuAt,
+		onDropFiles,
 	} = props;
+
+	const [isDragOver, setIsDragOver] = React.useState(false);
+	const dragCounterRef = React.useRef(0);
 
 	const isRoot = node.id === rootId;
 
@@ -121,10 +127,41 @@ export const FileTreeNode = React.memo(function FileTreeNode(
 		return (
 			<div>
 				<div
-					className="group relative flex items-center gap-2 px-2 py-1 pr-10"
+					className={`group relative flex items-center gap-2 px-2 py-1 pr-10 ${
+						isDragOver ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500' : ''
+					}`}
 					onContextMenu={(e) => {
 						e.preventDefault();
 						openMenuAt(node.id, 'folder', e.clientX, e.clientY);
+					}}
+					onDragEnter={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						dragCounterRef.current++;
+						if (!isDragOver) {
+							setIsDragOver(true);
+						}
+					}}
+					onDragOver={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+					}}
+					onDragLeave={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						dragCounterRef.current--;
+						if (dragCounterRef.current === 0) {
+							setIsDragOver(false);
+						}
+					}}
+					onDrop={(e) => {
+						e.preventDefault();
+						// Don't stop propagation - let it bubble to Sidebar to clear its drag state
+						dragCounterRef.current = 0;
+						setIsDragOver(false);
+						if (onDropFiles && e.dataTransfer.files.length > 0) {
+							onDropFiles(node.id, e.dataTransfer.files);
+						}
 					}}
 				>
 					{!isRoot && (
