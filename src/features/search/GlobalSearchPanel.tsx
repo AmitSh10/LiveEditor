@@ -1,20 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import {
 	selectActiveFileId,
 	selectAllExtensions,
-	selectGlobalSearchResults,
 	selectSearchState,
-} from '../workspace/workspaceSelectors';
+	selectActiveProjectId,
+	selectRoot,
+} from '../workspace/filesystemWorkspaceSelectors';
+import type { GlobalSearchResult } from '../workspace/filesystemWorkspaceSelectors';
 import {
 	setExtFilters,
 	setMatchCase,
 	setSearchMode,
 	setSearchQuery,
 	openFile,
-	type SearchMode,
-} from '../workspace/workspaceSlice';
+	performGlobalSearch,
+} from '../workspace/filesystemWorkspaceSlice';
 import { focusActiveEditor, revealInActiveEditor } from '../editor/EditorPanel';
+import type { SearchMode } from '../../types/workspace';
 
 function normalizeExtLabel(ext: string) {
 	return ext.startsWith('.') ? ext : `.${ext}`;
@@ -32,10 +35,55 @@ export function GlobalSearchPanel() {
 		useAppSelector(selectSearchState);
 
 	const activeFileId = useAppSelector(selectActiveFileId);
+	const projectId = useAppSelector(selectActiveProjectId);
 	const allExts = useAppSelector(selectAllExtensions);
-	const results = useAppSelector(selectGlobalSearchResults);
+	const root = useAppSelector(selectRoot);
 
 	const [extOpen, setExtOpen] = useState(false);
+	const [results, setResults] = useState<GlobalSearchResult[]>([]);
+	const [isSearching, setIsSearching] = useState(false);
+	const [pendingReveal, setPendingReveal] = useState<{ fileId: string; line: number; column: number } | null>(null);
+
+	// Apply pending reveal when active file changes
+	useEffect(() => {
+		if (pendingReveal && activeFileId === pendingReveal.fileId) {
+			// Wait a bit for the file to be fully loaded
+			const timer = setTimeout(() => {
+				revealInActiveEditor(pendingReveal.line, pendingReveal.column);
+				setPendingReveal(null);
+			}, 100);
+			return () => clearTimeout(timer);
+		}
+	}, [activeFileId, pendingReveal]);
+
+	// Perform search when search parameters change
+	useEffect(() => {
+		if (!projectId || !query.trim() || !root) {
+			setResults([]);
+			return;
+		}
+
+		let cancelled = false;
+		setIsSearching(true);
+
+		performGlobalSearch(projectId, query, mode, matchCase, extFilters, root)
+			.then((searchResults) => {
+				if (!cancelled) {
+					setResults(searchResults as GlobalSearchResult[]);
+					setIsSearching(false);
+				}
+			})
+			.catch((err) => {
+				console.error('Search failed:', err);
+				if (!cancelled) {
+					setIsSearching(false);
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [projectId, query, mode, matchCase, extFilters, root]);
 
 	const extSet = useMemo(
 		() => new Set((extFilters ?? []).map((x) => String(x).toLowerCase())),
@@ -48,14 +96,18 @@ export function GlobalSearchPanel() {
 	}, [extFilters]);
 
 	const onToggleExt = (ext: string) => {
+		if (!projectId) return;
 		const e = ext.toLowerCase();
 		const next = new Set(extSet);
 		if (next.has(e)) next.delete(e);
 		else next.add(e);
-		dispatch(setExtFilters(Array.from(next)));
+		dispatch(setExtFilters({ projectId, extFilters: Array.from(next) }));
 	};
 
-	const onSetMode = (m: SearchMode) => dispatch(setSearchMode(m));
+	const onSetMode = (m: SearchMode) => {
+		if (!projectId) return;
+		dispatch(setSearchMode({ projectId, mode: m }));
+	};
 
 	return (
 		<div className="h-full flex flex-col min-h-0">
@@ -64,7 +116,10 @@ export function GlobalSearchPanel() {
 			<div className="space-y-2">
 				<input
 					value={query}
-					onChange={(e) => dispatch(setSearchQuery(e.target.value))}
+					onChange={(e) => {
+						if (!projectId) return;
+						dispatch(setSearchQuery({ projectId, query: e.target.value }));
+					}}
 					placeholder="Search…"
 					className="w-full text-sm px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-slate-500"
 				/>
@@ -86,9 +141,10 @@ export function GlobalSearchPanel() {
 						<input
 							type="checkbox"
 							checked={matchCase}
-							onChange={(e) =>
-								dispatch(setMatchCase(e.target.checked))
-							}
+							onChange={(e) => {
+								if (!projectId) return;
+								dispatch(setMatchCase({ projectId, matchCase: e.target.checked }));
+							}}
 						/>
 						Match case
 					</label>
@@ -150,7 +206,9 @@ export function GlobalSearchPanel() {
 
 			{/* Results */}
 			<div className="mt-3 flex-1 min-h-0 overflow-auto pr-1">
-				{results.length === 0 ? (
+				{isSearching ? (
+					<div className="text-xs text-slate-500 dark:text-slate-500">Searching...</div>
+				) : results.length === 0 ? (
 					<div className="text-xs text-slate-500 dark:text-slate-500">No matches.</div>
 				) : (
 					<ul className="space-y-1">
@@ -161,13 +219,13 @@ export function GlobalSearchPanel() {
 										<button
 											className="w-full text-left text-sm px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-900"
 											onClick={() => {
-												if (r.nodeType !== 'file')
+												if (r.nodeType !== 'file' || !projectId)
 													return;
 
 												dispatch(
 													openFile({
-														id: r.id,
-														setActive: true,
+														projectId,
+														fileId: r.id,
 													})
 												);
 												defer(() =>
@@ -192,6 +250,8 @@ export function GlobalSearchPanel() {
 									<button
 										className="w-full text-left px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-900"
 										onClick={() => {
+											if (!projectId) return;
+
 											// ✅ If it's already the active file: just jump now
 											if (activeFileId === r.fileId) {
 												defer(() =>
@@ -203,19 +263,18 @@ export function GlobalSearchPanel() {
 												return;
 											}
 
-											// ✅ Otherwise: open, then jump
+											// ✅ Otherwise: open and set pending reveal
 											dispatch(
 												openFile({
-													id: r.fileId,
-													setActive: true,
+													projectId,
+													fileId: r.fileId,
 												})
 											);
-											defer(() =>
-												revealInActiveEditor(
-													r.line,
-													r.column
-												)
-											);
+											setPendingReveal({
+												fileId: r.fileId,
+												line: r.line!,
+												column: r.column!,
+											});
 										}}
 									>
 										<div className="text-xs text-slate-600 dark:text-slate-400">

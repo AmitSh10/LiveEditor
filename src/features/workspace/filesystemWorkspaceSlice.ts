@@ -480,6 +480,35 @@ const filesystemWorkspaceSlice = createSlice({
 			state.personalStateVersion++;
 		},
 
+		// ========== Search State ==========
+
+		setSearchQuery(state, action: PayloadAction<{ projectId: string; query: string }>) {
+			const { projectId, query } = action.payload;
+			savePersonalState(projectId, { searchQuery: query });
+			state.personalStateVersion++;
+		},
+
+		setSearchMode(
+			state,
+			action: PayloadAction<{ projectId: string; mode: 'all' | 'names' | 'content' }>
+		) {
+			const { projectId, mode } = action.payload;
+			savePersonalState(projectId, { searchMode: mode });
+			state.personalStateVersion++;
+		},
+
+		setMatchCase(state, action: PayloadAction<{ projectId: string; matchCase: boolean }>) {
+			const { projectId, matchCase } = action.payload;
+			savePersonalState(projectId, { matchCase });
+			state.personalStateVersion++;
+		},
+
+		setExtFilters(state, action: PayloadAction<{ projectId: string; extFilters: string[] }>) {
+			const { projectId, extFilters } = action.payload;
+			savePersonalState(projectId, { extFilters });
+			state.personalStateVersion++;
+		},
+
 		// ========== Global Settings ==========
 
 		toggleHexView(state) {
@@ -503,6 +532,10 @@ export const {
 	openFile,
 	closeFile,
 	togglePinFile,
+	setSearchQuery,
+	setSearchMode,
+	setMatchCase,
+	setExtFilters,
 	toggleHexView,
 	setHexView,
 } = filesystemWorkspaceSlice.actions;
@@ -864,6 +897,207 @@ export async function restoreWorkspace(dispatch: any): Promise<void> {
 			}
 		}
 	}
+}
+
+/**
+ * Perform global search across all files in the project
+ * Loads file contents on-demand for content search
+ */
+export async function performGlobalSearch(
+	projectId: string,
+	query: string,
+	mode: 'all' | 'names' | 'content',
+	matchCase: boolean,
+	extFilters: string[],
+	root: FolderNode | null
+): Promise<Array<{
+	kind: 'name' | 'content';
+	nodeType?: 'file' | 'folder';
+	id?: string;
+	fileId?: string;
+	name?: string;
+	path: string;
+	line?: number;
+	column?: number;
+	preview?: string;
+	lineText?: string;
+}>> {
+	const handle = getProjectHandle(projectId);
+	if (!handle || !root) return [];
+
+	const qRaw = query.trim();
+	if (!qRaw) return [];
+
+	const normalizeExt = (ext: string) => {
+		const e = (ext ?? '').trim().toLowerCase();
+		if (!e) return '';
+		return e.startsWith('.') ? e.slice(1) : e;
+	};
+
+	const extSet = new Set(extFilters.map(normalizeExt).filter(Boolean));
+	const hasExtFilter = extSet.size > 0;
+	const needle = matchCase ? qRaw : qRaw.toLowerCase();
+
+	const results: Array<{
+		kind: 'name' | 'content';
+		nodeType?: 'file' | 'folder';
+		id?: string;
+		fileId?: string;
+		name?: string;
+		path: string;
+		line?: number;
+		column?: number;
+		preview?: string;
+		lineText?: string;
+	}> = [];
+
+	const makePreview = (lineText: string, matchIndex: number, needleLen: number) => {
+		const max = 140;
+		const half = Math.floor((max - needleLen) / 2);
+		const start = Math.max(0, matchIndex - half);
+		const end = Math.min(lineText.length, matchIndex + needleLen + half);
+		let s = lineText.slice(start, end);
+		if (start > 0) s = `…${s}`;
+		if (end < lineText.length) s = `${s}…`;
+		return s;
+	};
+
+	const findAllInLine = (haystack: string, needle: string): number[] => {
+		if (!needle) return [];
+		const out: number[] = [];
+		let idx = 0;
+		while (true) {
+			const hit = haystack.indexOf(needle, idx);
+			if (hit === -1) break;
+			out.push(hit);
+			idx = hit + Math.max(1, needle.length);
+		}
+		return out;
+	};
+
+	// Helper to find file node by path
+	const findFileByPath = (node: FSNode, pathParts: string[]): FileNode | null => {
+		if (pathParts.length === 0) return null;
+
+		if (node.type === 'file') {
+			if (pathParts.length === 1) {
+				const fileNode = node as FileNode;
+				const ext = fileNode.extension?.trim();
+				const fullName = ext ? `${fileNode.name}.${ext}` : fileNode.name;
+				if (fullName === pathParts[0]) {
+					return fileNode;
+				}
+			}
+			return null;
+		}
+
+		if (node.type === 'folder') {
+			if (pathParts.length === 1) {
+				// Looking for a file in this folder
+				for (const child of node.children || []) {
+					const found = findFileByPath(child, pathParts);
+					if (found) return found;
+				}
+			} else {
+				// Navigate into subfolder
+				if (node.name === pathParts[0]) {
+					for (const child of node.children || []) {
+						const found = findFileByPath(child, pathParts.slice(1));
+						if (found) return found;
+					}
+				} else {
+					// Check children
+					for (const child of node.children || []) {
+						const found = findFileByPath(child, pathParts);
+						if (found) return found;
+					}
+				}
+			}
+		}
+
+		return null;
+	};
+
+	// Search through files recursively
+	const searchDirectory = async (
+		dirHandle: FileSystemDirectoryHandle,
+		parentPath: string[] = []
+	): Promise<void> => {
+		for await (const [name, handle] of dirHandle.entries()) {
+			// Skip hidden files/folders and .leditor files
+			if (name.startsWith('.') || name.endsWith('.leditor')) continue;
+
+			if (handle.kind === 'directory') {
+				await searchDirectory(handle as FileSystemDirectoryHandle, [...parentPath, name]);
+			} else if (handle.kind === 'file') {
+				const fileName = name;
+				const fileExt = normalizeExt(fileName.split('.').pop() || '');
+				const filePath = [...parentPath, fileName].join('/');
+
+				// Find the file node to get its ID
+				const fileNode = findFileByPath(root, [...parentPath, fileName]);
+				const fileId = fileNode?.id || genId('file');
+
+				// Extension filter
+				if (hasExtFilter && !extSet.has(fileExt)) continue;
+
+				// Name search
+				if (mode !== 'content') {
+					const hay = matchCase ? fileName : fileName.toLowerCase();
+					if (hay.includes(needle)) {
+						results.push({
+							kind: 'name',
+							nodeType: 'file',
+							id: fileId,
+							name: fileName,
+							path: filePath,
+						});
+					}
+				}
+
+				// Content search
+				if (mode !== 'names') {
+					try {
+						const fileHandle = handle as FileSystemFileHandle;
+						const file = await fileHandle.getFile();
+
+						// Skip binary files
+						const extension = fileExt.toLowerCase();
+						const binaryExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'woff', 'woff2', 'ttf', 'eot', 'zip', 'tar', 'gz', 'pdf', 'exe', 'dll'];
+						if (binaryExts.includes(extension)) continue;
+
+						const content = await file.text();
+						const lines = content.split(/\r?\n/);
+
+						for (let i = 0; i < lines.length; i++) {
+							const lineText = lines[i];
+							const hayLine = matchCase ? lineText : lineText.toLowerCase();
+							const hits = findAllInLine(hayLine, needle);
+
+							if (hits.length > 0) {
+								for (const hit of hits) {
+									results.push({
+										kind: 'content',
+										fileId,
+										path: filePath,
+										line: i + 1,
+										column: hit + 1,
+										lineText,
+										preview: makePreview(lineText, hit, needle.length),
+									});
+								}
+							}
+						}
+					} catch (err) {
+						console.warn(`Failed to read file ${filePath}:`, err);
+					}
+				}
+			}
+		}
+	};
+
+	await searchDirectory(handle);
+	return results;
 }
 
 // Export helpers
