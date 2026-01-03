@@ -24,7 +24,11 @@ npm run preview
 
 ## Project Overview
 
-**Live Editor** is a fully-featured, browser-based code editor with an in-memory file system. It provides Monaco Editor integration, live preview for HTML/Markdown, global search, syntax highlighting for 70+ languages, code formatting, snippet system, and persistent storage via localStorage.
+**Live Editor** is a fully-featured, browser-based code editor with dual modes:
+- **Filesystem Mode** (default): Uses the File System Access API to work directly with files on your disk
+- **In-Memory Mode**: Virtual file system stored in browser memory
+
+It provides Monaco Editor integration, live preview for HTML/Markdown, global search, syntax highlighting for 70+ languages, code formatting, snippet system, and persistent storage.
 
 **Tech Stack:**
 - React 19.2 + TypeScript
@@ -35,6 +39,7 @@ npm run preview
 - JSZip for export functionality
 - Prettier for code formatting
 - React Markdown with GFM support
+- File System Access API for real file operations
 
 ---
 
@@ -42,10 +47,44 @@ npm run preview
 
 ### State Management (Redux Toolkit)
 
-The application uses a single Redux store ([src/app/store.ts](src/app/store.ts)) with two slices:
+The application uses a single Redux store ([src/app/store.ts](src/app/store.ts)) with multiple slices:
+
+#### **Mode Selection**
+The app runs in **Filesystem Mode** by default (`USE_FILESYSTEM_MODE = true`). This can be toggled by changing the flag in component files.
+
+#### **filesystemWorkspaceSlice** ([src/features/workspace/filesystemWorkspaceSlice.ts](src/features/workspace/filesystemWorkspaceSlice.ts))
+Manages filesystem-backed projects using the File System Access API:
+
+```typescript
+{
+  projects: FilesystemProject[],     // List of opened projects
+  activeProjectId: string | null,    // Currently active project
+  personalStateVersion: number       // Triggers re-renders on state changes
+}
+```
+
+**Per-Project Personal State** (stored in localStorage):
+```typescript
+{
+  openFileIds: string[],           // Tab bar (ordered list)
+  activeFileId: string | null,     // Currently selected file
+  pinnedFileIds: string[],         // Pinned tabs
+  hexViewEnabled: boolean          // Hex view toggle
+}
+```
+
+**Actions:**
+- **Project Management:** `createProject`, `openProject`, `closeProject`, `switchProject`, `deleteProject`
+- **File Operations:** `manifestUpdated` (rebuild tree from disk), `fileContentLoaded`, `fileContentUpdated`, `saveFileContent`
+- **Tab Management:** `openFile`, `closeFile`, `setActiveFile`, `togglePinFile`
+- **View:** `toggleHexView`
+- **Import:** `importNodes` (drag-and-drop files/folders into existing project)
+
+**Filesystem Handles:**
+Project directory handles are stored in IndexedDB for persistence across sessions. Files are read/written directly to disk using the File System Access API.
 
 #### **fsSlice** ([src/features/fs/fsSlice.ts](src/features/fs/fsSlice.ts))
-Manages the entire file system state:
+Manages the in-memory file system state (legacy mode):
 
 ```typescript
 {
@@ -236,6 +275,7 @@ Markdown and text preview component.
 - Debounced updates (300ms)
 - Blob URL caching for images (performance optimization)
 - Custom image component with path resolution
+- **On-demand image loading** in filesystem mode (loads images from disk on first render)
 
 **Markdown Image Path Handling:**
 Automatically wraps image paths containing spaces or parentheses in angle brackets:
@@ -243,6 +283,9 @@ Automatically wraps image paths containing spaces or parentheses in angle bracke
 ![Image](path with spaces/file.png) → ![Image](<path with spaces/file.png>)
 ![Image](folder (1)/image.gif)      → ![Image](<folder (1)/image.gif>)
 ```
+
+**Filesystem Mode Image Loading:**
+When in filesystem mode, images referenced in markdown are automatically loaded from disk on-demand. The CustomImg component triggers loading when it detects a relative path, ensuring images display immediately even after page refresh.
 
 #### **Sidebar.tsx** ([src/features/sidebar/Sidebar.tsx](src/features/sidebar/Sidebar.tsx))
 Sidebar container with switchable tabs.
@@ -306,7 +349,7 @@ Maps 70+ file extensions to Monaco Editor language IDs.
 - Other: graphql, dockerfile, protobuf, markdown, vue, svelte, etc.
 
 #### **Path Resolver** ([src/utils/pathResolver.ts](src/utils/pathResolver.ts))
-Resolves relative/absolute file paths for HTML/CSS/Markdown.
+Resolves relative/absolute file paths for HTML/CSS/Markdown in-memory mode.
 
 **Functions:**
 - `resolveRelativePath(root, sourceFile, relativePath)`: Resolve path from source file
@@ -319,6 +362,28 @@ Resolves relative/absolute file paths for HTML/CSS/Markdown.
   - Recursive CSS @import resolution
 - `resolveCssReferences(css, root, sourceFileId)`: Resolve `url()` and `@import` in CSS
 - `resolveMarkdownReferences(md, root, sourceFileId)`: Resolve `![](...)` with caching
+
+#### **Filesystem Path Resolver** ([src/utils/filesystemPathResolver.ts](src/utils/filesystemPathResolver.ts))
+Filesystem-aware version that loads files from disk on-demand.
+
+**Functions:**
+- `resolveHtmlReferencesFS(html, root, sourceFileId, projectId, dispatch)`: Inline all references in HTML
+  - **On-demand loading:** If CSS/JS files aren't in memory, loads them from disk using File System Access API
+  - Inlines CSS and JavaScript directly into HTML for preview
+  - Updates Redux store with loaded content for caching
+  - Recursive CSS @import resolution with on-demand loading
+- `resolveCssReferencesFS(css, root, sourceFileId, projectId, dispatch)`: Resolve CSS references
+  - Loads imported CSS files from disk if not in memory
+  - Resolves `url()` references to data URLs
+- `resolveMarkdownReferencesFS(md, root, sourceFileId, projectId)`: Resolve markdown images
+  - Loads images from disk and converts to data URLs
+
+**On-Demand Loading:**
+When HTML/CSS files reference other files that haven't been loaded yet (e.g., after page refresh), the resolver:
+1. Checks if file content is already in memory
+2. If not, loads the file from disk using the File System Access API
+3. Dispatches `fileContentUpdated` to cache the content in Redux
+4. Returns the resolved content
 
 #### **Fast FS Index** ([src/utils/fsIndex.ts](src/utils/fsIndex.ts))
 O(1) file system lookups instead of tree traversal.
@@ -866,4 +931,31 @@ This project is designed to run entirely in the browser with no backend. All dat
 
 ---
 
-**Last Updated:** 2025-12-29
+---
+
+## Recent Updates and Bug Fixes
+
+### January 2026 - Filesystem Mode Enhancements
+
+**Fixed: Path Resolution on Page Refresh**
+- **Problem:** After page refresh, markdown images and HTML CSS/JS files wouldn't load until switching files
+- **Root Cause:** In filesystem mode, files are loaded on-demand from disk. On refresh, referenced files hadn't been loaded yet, so the path resolver couldn't find their content
+- **Solution:**
+  - Modified `PreviewPanel.tsx` to load images on-demand when referenced in markdown
+  - Modified `filesystemPathResolver.ts` to load CSS/JS files on-demand when referenced in HTML
+  - Both now automatically load missing files from disk and cache them in Redux
+  - Ensures previews work immediately after page refresh
+
+**Fixed: Drag-and-Drop Highlight Persistence**
+- **Problem:** After dropping files into a folder, the blue drop highlight stayed visible
+- **Root Cause:** The `onDrop` handler in FileTreeNode was calling `e.stopPropagation()`, preventing the Sidebar from clearing its drag state
+- **Solution:** Removed `e.stopPropagation()` to allow the drop event to bubble to Sidebar
+
+**Fixed: File Closing Bug**
+- **Problem:** Closing a file would sometimes show "No File Selected" even though other files were still open
+- **Root Cause:** File IDs in localStorage didn't match IDs in the rebuilt tree after drag-and-drop import
+- **Solution:** Added proper state synchronization and removed debug logging after confirming the fix
+
+---
+
+**Last Updated:** 2026-01-03

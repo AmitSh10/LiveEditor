@@ -2,8 +2,23 @@ import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { selectActiveFileId, selectOpenFiles, selectPinnedFileIds, selectRoot } from '../workspace/workspaceSelectors';
 import { closeFile, setActiveFile, togglePinFile } from '../workspace/workspaceSlice';
+import {
+	selectActiveFileId as selectFSActiveFileId,
+	selectOpenFiles as selectFSOpenFiles,
+	selectPinnedFileIds as selectFSPinnedFileIds,
+	selectRoot as selectFSRoot,
+	selectActiveProjectId,
+} from '../workspace/filesystemWorkspaceSelectors';
+import {
+	closeFile as closeFSFile,
+	setActiveFile as setFSActiveFile,
+	togglePinFile as toggleFSPinFile,
+} from '../workspace/filesystemWorkspaceSlice';
 import { getFileIcon } from '../../utils/fileIcons';
 import type { FSNode } from '../../types/fs';
+
+// Filesystem mode flag
+const USE_FILESYSTEM_MODE = true;
 
 // Helper to build file path
 function buildFilePath(root: FSNode, targetId: string): string | null {
@@ -36,10 +51,11 @@ type ContextMenu = {
 
 export function TabsBar() {
 	const dispatch = useAppDispatch();
-	const activeId = useAppSelector(selectActiveFileId);
-	const openFiles = useAppSelector(selectOpenFiles);
-	const pinnedFileIds = useAppSelector(selectPinnedFileIds);
-	const root = useAppSelector(selectRoot);
+	const activeId = useAppSelector(USE_FILESYSTEM_MODE ? selectFSActiveFileId : selectActiveFileId);
+	const openFiles = useAppSelector(USE_FILESYSTEM_MODE ? selectFSOpenFiles : selectOpenFiles);
+	const pinnedFileIds = useAppSelector(USE_FILESYSTEM_MODE ? selectFSPinnedFileIds : selectPinnedFileIds);
+	const root = useAppSelector(USE_FILESYSTEM_MODE ? selectFSRoot : selectRoot);
+	const projectId = useAppSelector(USE_FILESYSTEM_MODE ? selectActiveProjectId : () => null);
 	const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
 	const menuRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +87,11 @@ export function TabsBar() {
 	const handleCloseOthers = (fileId: string) => {
 		openFiles.forEach((f) => {
 			if (f.id !== fileId && !pinnedFileIds.includes(f.id)) {
-				dispatch(closeFile({ id: f.id }));
+				dispatch(
+					USE_FILESYSTEM_MODE && projectId
+						? closeFSFile({ projectId, fileId: f.id })
+						: closeFile({ id: f.id })
+				);
 			}
 		});
 		setContextMenu(null);
@@ -83,7 +103,11 @@ export function TabsBar() {
 
 		for (let i = index + 1; i < sortedFiles.length; i++) {
 			if (!pinnedFileIds.includes(sortedFiles[i].id)) {
-				dispatch(closeFile({ id: sortedFiles[i].id }));
+				dispatch(
+					USE_FILESYSTEM_MODE && projectId
+						? closeFSFile({ projectId, fileId: sortedFiles[i].id })
+						: closeFile({ id: sortedFiles[i].id })
+				);
 			}
 		}
 		setContextMenu(null);
@@ -153,7 +177,13 @@ export function TabsBar() {
 											: 'bg-slate-100 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
 									}
 								`}
-								onClick={() => dispatch(setActiveFile(f.id))}
+								onClick={() =>
+								dispatch(
+									USE_FILESYSTEM_MODE && projectId
+										? setFSActiveFile({ projectId, fileId: f.id })
+										: setActiveFile(f.id)
+								)
+							}
 								onContextMenu={(e) => {
 									e.preventDefault();
 									setContextMenu({ fileId: f.id, x: e.clientX, y: e.clientY });
@@ -175,7 +205,11 @@ export function TabsBar() {
 								}`}
 								onClick={(e) => {
 									e.stopPropagation();
-									dispatch(togglePinFile({ id: f.id }));
+									dispatch(
+										USE_FILESYSTEM_MODE && projectId
+											? toggleFSPinFile({ projectId, fileId: f.id })
+											: togglePinFile({ id: f.id })
+									);
 								}}
 								title={isPinned ? 'Unpin' : 'Pin'}
 							>
@@ -193,7 +227,11 @@ export function TabsBar() {
 								onClick={(e) => {
 									e.stopPropagation();
 									if (!isPinned) {
-										dispatch(closeFile({ id: f.id }));
+										dispatch(
+											USE_FILESYSTEM_MODE && projectId
+												? closeFSFile({ projectId, fileId: f.id })
+												: closeFile({ id: f.id })
+										);
 									}
 								}}
 								title={isPinned ? 'Pinned (cannot close)' : 'Close'}

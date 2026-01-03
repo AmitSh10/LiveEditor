@@ -289,6 +289,39 @@ const workspaceSlice = createSlice({
 			state.activeProjectId = importedProject.id;
 		},
 
+		// Import project from .leditor file format
+		importProjectFromLeditor(state, action: PayloadAction<{ data: any }>) {
+			const { data } = action.payload;
+
+			// Validate basic structure
+			if (!data || typeof data !== 'object' || !data.name || !data.root) {
+				console.error('Invalid .leditor file format');
+				return;
+			}
+
+			const project = createDefaultProject(data.name);
+			project.root = data.root;
+			project.activeFileId = data.activeFileId ?? null;
+			project.openFileIds = data.openFileIds ?? [];
+			project.pinnedFileIds = data.pinnedFileIds ?? [];
+			project.searchQuery = data.searchQuery ?? '';
+			project.searchMode = data.searchMode ?? 'all';
+			project.matchCase = data.matchCase ?? false;
+			project.extFilters = data.extFilters ?? [];
+
+			// Check for duplicate names
+			let finalName = project.name;
+			let counter = 1;
+			while (state.projects.some(p => p.name === finalName)) {
+				finalName = `${data.name} (${counter})`;
+				counter++;
+			}
+			project.name = finalName;
+
+			state.projects.push(project);
+			state.activeProjectId = project.id;
+		},
+
 		// ========== Active Project State ==========
 
 		setActiveFile(state, action: PayloadAction<string | null>) {
@@ -720,6 +753,7 @@ export const {
 	renameProject,
 	switchProject,
 	importProject,
+	importProjectFromLeditor,
 
 	// File & tab management
 	setActiveFile,

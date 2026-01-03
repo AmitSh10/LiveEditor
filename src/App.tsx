@@ -3,11 +3,19 @@ import { useAppSelector, useAppDispatch } from './app/hooks';
 
 import { Sidebar } from './features/sidebar/Sidebar';
 import { EditorPanel } from './features/editor/EditorPanel';
+import { FilesystemEditorPanel } from './features/editor/FilesystemEditorPanel';
+import { ProjectSwitcher } from './features/workspace/ProjectSwitcher';
+import { FilesystemProjectSwitcher } from './features/workspace/FilesystemProjectSwitcher';
 import { exportAsZip } from './features/fs/exportZip';
 import { importFolder as importFolderFromFiles } from './features/fs/importFolder';
 import { importFolder } from './features/workspace/workspaceSlice';
 import { selectRoot } from './features/workspace/workspaceSelectors';
+import { selectRoot as selectFSRoot } from './features/workspace/filesystemWorkspaceSelectors';
 import { toggleTheme } from './features/theme/themeSlice';
+import { restoreWorkspace } from './features/workspace/filesystemWorkspaceSlice';
+
+// Toggle between filesystem mode and in-memory mode
+const USE_FILESYSTEM_MODE = true;
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 600;
@@ -15,7 +23,7 @@ const DEFAULT_SIDEBAR_WIDTH = 280;
 
 export default function App() {
 	const dispatch = useAppDispatch();
-	const root = useAppSelector(selectRoot);
+	const root = useAppSelector(USE_FILESYSTEM_MODE ? selectFSRoot : selectRoot);
 	const theme = useAppSelector((s) => s.theme.theme);
 	const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
 	const [isResizing, setIsResizing] = useState(false);
@@ -32,6 +40,13 @@ export default function App() {
 			document.documentElement.classList.remove('dark');
 		}
 	}, [theme]);
+
+	// Restore workspace from IndexedDB on mount (filesystem mode only)
+	useEffect(() => {
+		if (USE_FILESYSTEM_MODE) {
+			restoreWorkspace(dispatch);
+		}
+	}, [dispatch]);
 
 	useEffect(() => {
 		const handleMouseMove = (e: MouseEvent) => {
@@ -192,16 +207,23 @@ export default function App() {
 			<main className="flex-1 p-3 h-screen flex flex-col overflow-hidden">
 				<div className="flex items-center justify-between mb-2">
 					<div className="font-semibold">Editor</div>
-					<button
-						onClick={() => dispatch(toggleTheme())}
-						className="px-3 py-1 text-sm bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-						title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-					>
-						{theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-					</button>
+					<div className="flex items-center gap-2">
+						{USE_FILESYSTEM_MODE ? (
+							<FilesystemProjectSwitcher />
+						) : (
+							<ProjectSwitcher />
+						)}
+						<button
+							onClick={() => dispatch(toggleTheme())}
+							className="px-3 py-1 text-sm bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+							title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+						>
+							{theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+						</button>
+					</div>
 				</div>
 				<div className="flex-1 min-h-0">
-					<EditorPanel />
+					{USE_FILESYSTEM_MODE ? <FilesystemEditorPanel /> : <EditorPanel />}
 				</div>
 			</main>
 		</div>
